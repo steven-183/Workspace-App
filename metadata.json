@@ -1,0 +1,6 @@
+{
+  "name": "Notion Workspace & Tasks",
+  "description": "Ứng dụng quản lý công việc chuẩn giao diện Notion với bảng kéo thả Kanban, dòng thời gian Timeline Gantt, bảng dữ liệu Table và ghi chú tương tác.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
