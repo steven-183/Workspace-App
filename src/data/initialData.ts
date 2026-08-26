@@ -6,6 +6,7 @@ const today = getTodayString();
 export const SAMPLE_USERS: User[] = [];
 
 export const SAMPLE_TAGS: Tag[] = [
+  { id: 't-qanda', label: 'QANDA Core', color: 'qanda_pink' },
   { id: 't1', label: 'Frontend', color: 'blue' },
   { id: 't2', label: 'Backend', color: 'green' },
   { id: 't3', label: 'UI/UX Design', color: 'pink' },
@@ -29,10 +30,10 @@ export const DEFAULT_COLUMNS: StatusColumn[] = [
 export const INITIAL_PROJECTS: ProjectPage[] = [
   {
     id: 'proj-1',
-    title: 'Bảng công việc',
+    title: 'Bảng công việc QANDA',
     icon: '📋',
-    coverImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    description: 'Không gian làm việc và theo dõi nhiệm vụ.',
+    coverImage: 'linear-gradient(135deg, #FFA9B2 0%, #FFD6DC 100%)',
+    description: 'Không gian làm việc và theo dõi nhiệm vụ QANDA Workspace.',
     columns: DEFAULT_COLUMNS,
     views: ['kanban', 'timeline', 'table', 'calendar'],
     activeView: 'kanban',

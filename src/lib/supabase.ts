@@ -88,7 +88,9 @@ export async function signUpWithEmail(email: string, password: string, fullName:
     }
 
     if (data.session && data.user) {
-      return { user: mapSupabaseUser(data.user), error: null };
+      const appUser = mapSupabaseUser(data.user);
+      upsertUserProfile(appUser).catch(() => {});
+      return { user: appUser, error: null };
     }
 
     if (data.user) {
@@ -144,7 +146,9 @@ export async function signInWithEmail(email: string, password: string): Promise<
     }
 
     if (data.user) {
-      return { user: mapSupabaseUser(data.user), error: null };
+      const appUser = mapSupabaseUser(data.user);
+      upsertUserProfile(appUser).catch(() => {});
+      return { user: appUser, error: null };
     }
 
     return { user: null, error: 'Đăng nhập không thành công.' };
@@ -172,12 +176,56 @@ export async function getCurrentSupabaseUser(): Promise<User | null> {
   try {
     const { data } = await supabase.auth.getUser();
     if (data.user) {
-      return mapSupabaseUser(data.user);
+      const user = mapSupabaseUser(data.user);
+      // Background sync user to profiles table
+      upsertUserProfile(user).catch(() => {});
+      return user;
     }
   } catch (err) {
     console.error('Error fetching Supabase user:', err);
   }
   return null;
+}
+
+// User Profiles API
+export async function fetchProfilesFromSupabase(): Promise<User[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase.from('profiles').select('*');
+    if (error || !data) return [];
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.full_name || row.name || row.email?.split('@')[0] || 'User',
+      email: row.email || '',
+      avatar: row.avatar_url || row.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(row.full_name || row.name || 'User')}&backgroundColor=2383e2`,
+      color: row.color || '#2383e2',
+    }));
+  } catch (err) {
+    console.warn('Profiles fetch notice:', err);
+    return [];
+  }
+}
+
+export async function upsertUserProfile(user: User): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase || !user || !user.id) return;
+
+  try {
+    await supabase.from('profiles').upsert(
+      {
+        id: user.id,
+        full_name: user.name,
+        email: user.email || '',
+        avatar_url: user.avatar || '',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+  } catch (err) {
+    // Ignore error if profiles table is not created yet
+  }
 }
 
 // Database API: Projects & Tasks

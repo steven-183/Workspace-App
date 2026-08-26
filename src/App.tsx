@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FilterOptions, MainSectionType, NotionColor, PriorityLevel, ProjectPage, StatusId, Task, TaskNotification, TimelineZoom, User, ViewType, TeamId, FIXED_TEAMS } from './types';
+import { FilterOptions, MainSectionType, NotionColor, PriorityLevel, ProjectPage, StatusId, Task, TaskNotification, TimelineZoom, User, ViewType, TeamId, FIXED_TEAMS, AppTheme } from './types';
 import { DEFAULT_COLUMNS, INITIAL_PROJECTS, SAMPLE_TAGS, SAMPLE_USERS } from './data/initialData';
 import { Sidebar } from './components/Sidebar';
 import { PageHeader } from './components/PageHeader';
@@ -26,12 +26,14 @@ import {
   syncTaskToSupabase, 
   deleteTaskFromSupabase, 
   getCurrentSupabaseUser, 
+  fetchProfilesFromSupabase,
   signOutSupabase, 
   mapSupabaseUser 
 } from './lib/supabase';
 
 const STORAGE_KEY = 'notion_tasks_workspace_v1';
 const DARK_MODE_KEY = 'notion_tasks_dark_mode';
+const THEME_KEY = 'notion_tasks_app_theme';
 const USER_KEY = 'notion_tasks_logged_in_user_v1';
 
 export default function App() {
@@ -113,6 +115,18 @@ export default function App() {
     }
   });
 
+  const [appTheme, setAppTheme] = useState<AppTheme>(() => {
+    try {
+      const savedTheme = localStorage.getItem(THEME_KEY) as AppTheme;
+      if (savedTheme === 'qanda_pink' || savedTheme === 'dark' || savedTheme === 'light') {
+        return savedTheme;
+      }
+      return localStorage.getItem(DARK_MODE_KEY) === 'true' ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [timelineZoom, setTimelineZoom] = useState<TimelineZoom>('day');
 
@@ -132,10 +146,16 @@ export default function App() {
     }
   });
 
-  // Aggregated list of all available users across system, logged in user, and tasks
+  // Dynamic database users from Supabase profiles
+  const [dbUsers, setDbUsers] = useState<User[]>([]);
+
+  // Aggregated list of all available users across system, database, logged in user, and tasks
   const allAvailableUsers = useMemo(() => {
     const map = new Map<string, User>();
     SAMPLE_USERS.forEach((u) => {
+      if (u && (u.id || u.email)) map.set(u.id || u.email || '', u);
+    });
+    dbUsers.forEach((u) => {
       if (u && (u.id || u.email)) map.set(u.id || u.email || '', u);
     });
     if (currentUser && (currentUser.id || currentUser.email)) {
@@ -155,7 +175,7 @@ export default function App() {
       });
     });
     return Array.from(map.values());
-  }, [projects, currentUser]);
+  }, [projects, currentUser, dbUsers]);
 
   // In-app Notifications State
   const [notifications, setNotifications] = useState<TaskNotification[]>(() => getStoredNotifications());
@@ -233,17 +253,27 @@ export default function App() {
     const supabase = getSupabase();
     if (!supabase) return;
 
-    // 1. Check current Supabase Auth session
+    // 1. Check current Supabase Auth session & fetch all database profiles
     getCurrentSupabaseUser().then((user) => {
       if (user) {
         setCurrentUser(user);
       }
     });
 
+    fetchProfilesFromSupabase().then((profiles) => {
+      if (profiles && profiles.length > 0) {
+        setDbUsers(profiles);
+      }
+    });
+
     // 2. Listen to Auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setCurrentUser(mapSupabaseUser(session.user));
+        const user = mapSupabaseUser(session.user);
+        setCurrentUser(user);
+        fetchProfilesFromSupabase().then((profiles) => {
+          if (profiles && profiles.length > 0) setDbUsers(profiles);
+        });
       }
     });
 
@@ -286,19 +316,40 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Save dark mode setting
+  // Save theme & dark mode setting
+  const handleSetTheme = useCallback((theme: AppTheme) => {
+    setAppTheme(theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch (err) {
+      console.error('Failed to save theme:', err);
+    }
+    if (theme === 'dark') {
+      setDarkMode(true);
+    } else {
+      setDarkMode(false);
+    }
+  }, []);
+
   useEffect(() => {
     try {
+      localStorage.setItem(THEME_KEY, appTheme);
       localStorage.setItem(DARK_MODE_KEY, String(darkMode));
     } catch (err) {
-      console.error('Failed to save dark mode:', err);
+      console.error('Failed to save theme setting:', err);
     }
-    if (darkMode) {
+
+    if (appTheme === 'dark') {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('theme-qanda-pink');
+    } else if (appTheme === 'qanda_pink') {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('theme-qanda-pink');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove('theme-qanda-pink');
     }
-  }, [darkMode]);
+  }, [appTheme, darkMode]);
 
   // Current active project
   const activeProject = useMemo(() => {
@@ -891,7 +942,9 @@ export default function App() {
 
   return (
     <div className={`w-screen h-screen flex overflow-hidden font-sans ${
-      darkMode ? 'bg-[#191919] text-[#e0e0e0]' : 'bg-[#ffffff] text-[#37352f]'
+      appTheme === 'qanda_pink'
+        ? 'bg-[#fff5f6] text-[#37352f]'
+        : darkMode ? 'bg-[#191919] text-[#e0e0e0]' : 'bg-[#ffffff] text-[#37352f]'
     }`}>
       {/* Notion Sidebar */}
       <Sidebar
@@ -926,7 +979,12 @@ export default function App() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         darkMode={darkMode}
-        onToggleDarkMode={() => setDarkMode(!darkMode)}
+        onToggleDarkMode={() => {
+          const next = darkMode ? 'light' : 'dark';
+          handleSetTheme(next);
+        }}
+        appTheme={appTheme}
+        onSetTheme={handleSetTheme}
       />
 
       {/* Main Workspace Body */}

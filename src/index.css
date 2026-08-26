@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+/* Theme QANDA Pink (#FFA9B2) Custom Styling Support */
+.theme-qanda-pink {
+  --primary: #FFA9B2;
+  --primary-hover: #ff8e9b;
+}
+
+.theme-qanda-pink ::selection {
+  background-color: #ffd1d7;
+  color: #701a25;
+}

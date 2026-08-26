@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MainSectionType, ProjectPage, TaskNotification, User, TeamId, FIXED_TEAMS } from '../types';
+import { MainSectionType, ProjectPage, TaskNotification, User, TeamId, FIXED_TEAMS, AppTheme } from '../types';
 import { NotificationCenter } from './NotificationCenter';
 import { 
   ChevronDown, 
@@ -57,6 +57,8 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  appTheme?: AppTheme;
+  onSetTheme?: (theme: AppTheme) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -84,6 +86,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
   darkMode,
   onToggleDarkMode,
+  appTheme = 'light',
+  onSetTheme,
 }) => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
@@ -700,18 +704,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className={`p-2 rounded-xl my-1.5 text-xs space-y-1 border shadow-lg ${
               darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
             }`}>
-              <button
-                onClick={onToggleDarkMode}
-                className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors ${
-                  darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  {darkMode ? <Sun size={13} className="text-amber-400" /> : <Moon size={13} />}
-                  <span>Chế độ {darkMode ? 'Sáng' : 'Tối'}</span>
-                </span>
-                <span className="text-[10px] text-[#9b9a97]">{darkMode ? 'Dark' : 'Light'}</span>
-              </button>
+              {/* Theme Selection options: Sáng, Tối, QANDA Pink (#FFA9B2) */}
+              <div className="pt-1 pb-1">
+                <div className="text-[10px] uppercase font-bold text-[#9b9a97] px-2 py-1 flex items-center gap-1.5">
+                  <Sparkles size={11} className="text-[#FFA9B2]" />
+                  <span>Giao diện màu sắc</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 px-1 pt-1 pb-1">
+                  <button
+                    onClick={() => {
+                      if (onSetTheme) onSetTheme('light');
+                      else if (darkMode) onToggleDarkMode();
+                    }}
+                    className={`flex flex-col items-center justify-center p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
+                      appTheme === 'light'
+                        ? 'bg-white border-[#2383e2] text-[#2383e2] shadow-xs'
+                        : darkMode ? 'bg-[#1e1e1e] border-[#383838] text-[#888] hover:text-white' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
+                    }`}
+                    title="Giao diện Sáng (Notion Light)"
+                  >
+                    <Sun size={14} className="mb-0.5 text-amber-500" />
+                    <span>Sáng</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (onSetTheme) onSetTheme('dark');
+                      else if (!darkMode) onToggleDarkMode();
+                    }}
+                    className={`flex flex-col items-center justify-center p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
+                      appTheme === 'dark'
+                        ? 'bg-[#2a2a2a] border-[#2383e2] text-white shadow-xs'
+                        : darkMode ? 'bg-[#1e1e1e] border-[#383838] text-[#888] hover:text-white' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
+                    }`}
+                    title="Giao diện Tối (Notion Dark)"
+                  >
+                    <Moon size={14} className="mb-0.5 text-blue-400" />
+                    <span>Tối</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (onSetTheme) onSetTheme('qanda_pink');
+                    }}
+                    className={`flex flex-col items-center justify-center p-1.5 rounded-lg border text-[10px] font-bold transition-all relative overflow-hidden ${
+                      appTheme === 'qanda_pink'
+                        ? 'bg-[#fff0f2] border-[#FFA9B2] text-[#d63d57] shadow-xs ring-1 ring-[#FFA9B2]'
+                        : darkMode ? 'bg-[#1e1e1e] border-[#383838] text-[#FFA9B2] hover:bg-[#2e181c]' : 'bg-[#fff5f6] border-transparent text-[#d63d57] hover:bg-[#ffe6e9]'
+                    }`}
+                    title="Giao diện đặc trưng QANDA Pink (#FFA9B2)"
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#FFA9B2] border border-[#ff8593] shadow-xs mb-0.5" />
+                    <span className="truncate">QANDA</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className={`my-1 border-t ${darkMode ? 'border-[#383838]' : 'border-[#eee]'}`} />
 
               <button
                 onClick={onExportData}

@@ -63,6 +63,13 @@ export const NOTION_COLORS: Record<NotionColor, {
     badgeBg: 'bg-[#f7e1ee] text-[#b03b78]',
     dot: 'bg-[#c14c8a]',
   },
+  qanda_pink: {
+    bg: 'bg-[#fff0f2]',
+    text: 'text-[#d63d57]',
+    border: 'border-[#ffa9b2]',
+    badgeBg: 'bg-[#ffa9b2]/30 text-[#b5263f]',
+    dot: 'bg-[#ffa9b2]',
+  },
   red: {
     bg: 'bg-[#fbe4e4]',
     text: 'text-[#d44c47]',
@@ -117,6 +124,8 @@ export const PRIORITY_CONFIG: Record<PriorityLevel, {
 };
 
 export const PRESET_COVERS = [
+  { id: 'grad_qanda', name: 'QANDA Pink (#FFA9B2)', url: 'linear-gradient(135deg, #FFA9B2 0%, #FFD6DC 100%)' },
+  { id: 'grad_qanda_sunset', name: 'QANDA Coral Sunset', url: 'linear-gradient(135deg, #FFA9B2 0%, #FF758C 100%)' },
   { id: 'grad_1', name: 'Bình minh Hồng-Cam', url: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%)' },
   { id: 'grad_2', name: 'Đại dương Xanh', url: 'linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)' },
   { id: 'grad_3', name: 'Hoàng hôn Tím', url: 'linear-gradient(to top, #a18cd1 0%, #fbc2eb 100%)' },
