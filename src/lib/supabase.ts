@@ -87,13 +87,43 @@ export async function signUpWithEmail(email: string, password: string, fullName:
       return { user: null, error: error.message };
     }
 
-    if (data.user) {
+    if (data.session && data.user) {
       return { user: mapSupabaseUser(data.user), error: null };
+    }
+
+    if (data.user) {
+      // User created but requires email confirmation
+      return { 
+        user: null, 
+        error: 'Tài khoản đã tạo thành công! Vui lòng kiểm tra hộp thư email (hoặc mục Spam) để bấm link xác thực trước khi đăng nhập, hoặc tắt "Confirm email" trên Supabase Dashboard.' 
+      };
     }
 
     return { user: null, error: 'Vui lòng kiểm tra email để xác thực tài khoản.' };
   } catch (err: any) {
     return { user: null, error: err.message || 'Lỗi khi đăng ký' };
+  }
+}
+
+export async function resendConfirmationEmail(email: string): Promise<{ success: boolean; error: string | null }> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return { success: false, error: 'Chưa cấu hình Supabase URL và API Key.' };
+  }
+
+  try {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Lỗi khi gửi lại email xác nhận' };
   }
 }
 

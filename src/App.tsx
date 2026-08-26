@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FilterOptions, MainSectionType, NotionColor, PriorityLevel, ProjectPage, StatusId, Task, TaskNotification, TimelineZoom, User, ViewType, TeamId, FIXED_TEAMS } from './types';
-import { DEFAULT_COLUMNS, INITIAL_PROJECTS, SAMPLE_TAGS } from './data/initialData';
+import { DEFAULT_COLUMNS, INITIAL_PROJECTS, SAMPLE_TAGS, SAMPLE_USERS } from './data/initialData';
 import { Sidebar } from './components/Sidebar';
 import { PageHeader } from './components/PageHeader';
 import { ViewSwitcher } from './components/ViewSwitcher';
@@ -13,9 +13,11 @@ import { TaskDetailModal } from './components/TaskDetailModal';
 import { EmojiPickerModal } from './components/EmojiPickerModal';
 import { QuickSearchModal } from './components/QuickSearchModal';
 import { AuthModal } from './components/AuthModal';
+import { TrashArchiveModal } from './components/TrashArchiveModal';
+import { ToastNotificationContainer } from './components/ToastNotificationContainer';
 import { Lock, LogIn, ShieldAlert } from 'lucide-react';
 import { addDays, getTodayString, isDueThisWeek, isDueToday, isOverdue } from './utils/dateUtils';
-import { getStoredNotifications, saveStoredNotifications } from './utils/notificationService';
+import { getStoredNotifications, saveStoredNotifications, triggerToast } from './utils/notificationService';
 import { 
   getSupabase, 
   fetchAllProjectsFromSupabase, 
@@ -119,6 +121,8 @@ export default function App() {
   const [selectedTaskProjectId, setSelectedTaskProjectId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showQuickSearch, setShowQuickSearch] = useState(false);
+  const [showTrashArchiveModal, setShowTrashArchiveModal] = useState(false);
+  const [trashArchiveInitialTab, setTrashArchiveInitialTab] = useState<'archive' | 'trash'>('archive');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(() => {
     try {
       const savedUser = localStorage.getItem(USER_KEY);
@@ -127,6 +131,31 @@ export default function App() {
       return true;
     }
   });
+
+  // Aggregated list of all available users across system, logged in user, and tasks
+  const allAvailableUsers = useMemo(() => {
+    const map = new Map<string, User>();
+    SAMPLE_USERS.forEach((u) => {
+      if (u && (u.id || u.email)) map.set(u.id || u.email || '', u);
+    });
+    if (currentUser && (currentUser.id || currentUser.email)) {
+      map.set(currentUser.id || currentUser.email || '', currentUser);
+    }
+    projects.forEach((proj) => {
+      (proj.tasks || []).forEach((t) => {
+        if (t.creator && (t.creator.id || t.creator.email)) {
+          map.set(t.creator.id || t.creator.email || '', t.creator);
+        }
+        (t.assignees || []).forEach((u) => {
+          if (u && (u.id || u.email)) map.set(u.id || u.email || '', u);
+        });
+        (t.followers || []).forEach((u) => {
+          if (u && (u.id || u.email)) map.set(u.id || u.email || '', u);
+        });
+      });
+    });
+    return Array.from(map.values());
+  }, [projects, currentUser]);
 
   // In-app Notifications State
   const [notifications, setNotifications] = useState<TaskNotification[]>(() => getStoredNotifications());
@@ -297,9 +326,9 @@ export default function App() {
     }
   }, [projects, selectedTaskProjectId, activeProjectId]);
 
-  // Filtered and sorted tasks for current project
+  // Filtered and sorted tasks for current project (excluding deleted & archived)
   const filteredTasks = useMemo(() => {
-    let result = [...activeProject.tasks];
+    let result = (activeProject.tasks || []).filter((t) => !t.isDeleted && !t.isArchived);
 
     // 1. Search Query
     if (filters.search.trim()) {
@@ -534,16 +563,166 @@ export default function App() {
     handleUpdateTaskInProject(targetProjId, taskId, updates);
   }, [selectedTaskProjectId, activeProjectId, handleUpdateTaskInProject]);
 
-  const handleDeleteTask = useCallback((taskId: string) => {
+  // Soft delete task (Move to Trash)
+  const handleSoftDeleteTask = useCallback((taskId: string) => {
     const targetProjId = selectedTaskProjectId || activeProjectId;
+    let taskTitle = '';
     setProjects((prev) => 
       prev.map((p) => {
         if (p.id !== targetProjId) return p;
+        const updatedTasks = p.tasks.map((t) => {
+          if (t.id === taskId) {
+            taskTitle = t.title;
+            const updated: Task = {
+              ...t,
+              isDeleted: true,
+              deletedAt: new Date().toISOString(),
+              updatedAt: getTodayString(),
+            };
+            syncTaskToSupabase(targetProjId, updated);
+            return updated;
+          }
+          return t;
+        });
+        return { ...p, tasks: updatedTasks };
+      })
+    );
+    setSelectedTask(null);
+    setSelectedTaskProjectId(null);
+    triggerToast({
+      title: 'Đã chuyển vào Thùng rác',
+      message: `Công việc "${taskTitle || taskId}" đã được chuyển vào Thùng rác. Bạn có thể khôi phục bất cứ lúc nào.`,
+      type: 'property_change',
+    });
+  }, [selectedTaskProjectId, activeProjectId]);
+
+  // Archive task
+  const handleArchiveTask = useCallback((taskId: string) => {
+    const targetProjId = selectedTaskProjectId || activeProjectId;
+    let taskTitle = '';
+    setProjects((prev) => 
+      prev.map((p) => {
+        if (p.id !== targetProjId) return p;
+        const updatedTasks = p.tasks.map((t) => {
+          if (t.id === taskId) {
+            taskTitle = t.title;
+            const updated: Task = {
+              ...t,
+              isArchived: true,
+              updatedAt: getTodayString(),
+            };
+            syncTaskToSupabase(targetProjId, updated);
+            return updated;
+          }
+          return t;
+        });
+        return { ...p, tasks: updatedTasks };
+      })
+    );
+    setSelectedTask(null);
+    setSelectedTaskProjectId(null);
+    triggerToast({
+      title: 'Đã lưu trữ công việc',
+      message: `Công việc "${taskTitle || taskId}" đã được chuyển vào Kho lưu trữ.`,
+      type: 'property_change',
+    });
+  }, [selectedTaskProjectId, activeProjectId]);
+
+  // Unarchive task
+  const handleUnarchiveTask = useCallback((projId: string, taskId: string) => {
+    let taskTitle = '';
+    setProjects((prev) => 
+      prev.map((p) => {
+        if (p.id !== projId) return p;
+        const updatedTasks = p.tasks.map((t) => {
+          if (t.id === taskId) {
+            taskTitle = t.title;
+            const updated: Task = {
+              ...t,
+              isArchived: false,
+              updatedAt: getTodayString(),
+            };
+            syncTaskToSupabase(projId, updated);
+            return updated;
+          }
+          return t;
+        });
+        return { ...p, tasks: updatedTasks };
+      })
+    );
+    triggerToast({
+      title: 'Đã khôi phục từ Kho lưu trữ',
+      message: `Công việc "${taskTitle || taskId}" đã được đưa trở lại danh sách hoạt động.`,
+      type: 'property_change',
+    });
+  }, []);
+
+  // Restore task from trash
+  const handleRestoreTask = useCallback((projId: string, taskId: string) => {
+    let taskTitle = '';
+    setProjects((prev) => 
+      prev.map((p) => {
+        if (p.id !== projId) return p;
+        const updatedTasks = p.tasks.map((t) => {
+          if (t.id === taskId) {
+            taskTitle = t.title;
+            const updated: Task = {
+              ...t,
+              isDeleted: false,
+              deletedAt: undefined,
+              updatedAt: getTodayString(),
+            };
+            syncTaskToSupabase(projId, updated);
+            return updated;
+          }
+          return t;
+        });
+        return { ...p, tasks: updatedTasks };
+      })
+    );
+    triggerToast({
+      title: 'Đã khôi phục công việc',
+      message: `Công việc "${taskTitle || taskId}" đã được khôi phục từ Thùng rác.`,
+      type: 'property_change',
+    });
+  }, []);
+
+  // Permanent Delete task
+  const handlePermanentDeleteTask = useCallback((projId: string, taskId: string) => {
+    setProjects((prev) => 
+      prev.map((p) => {
+        if (p.id !== projId) return p;
         return { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) };
       })
     );
     deleteTaskFromSupabase(taskId);
-  }, [selectedTaskProjectId, activeProjectId]);
+    triggerToast({
+      title: 'Đã xóa vĩnh viễn',
+      message: 'Công việc đã được xóa hoàn toàn khỏi hệ thống.',
+      type: 'property_change',
+    });
+  }, []);
+
+  // Empty Trash for project
+  const handleEmptyTrash = useCallback((projId: string) => {
+    setProjects((prev) => 
+      prev.map((p) => {
+        if (p.id !== projId) return p;
+        const deletedIds = p.tasks.filter((t) => t.isDeleted).map((t) => t.id);
+        deletedIds.forEach((id) => deleteTaskFromSupabase(id));
+        return { ...p, tasks: p.tasks.filter((t) => !t.isDeleted) };
+      })
+    );
+    triggerToast({
+      title: 'Đã dọn sạch Thùng rác',
+      message: 'Tất cả công việc trong thùng rác đã được xóa vĩnh viễn.',
+      type: 'property_change',
+    });
+  }, []);
+
+  const handleDeleteTask = useCallback((taskId: string) => {
+    handleSoftDeleteTask(taskId);
+  }, [handleSoftDeleteTask]);
 
   // Kanban Drag & Drop
   const handleMoveTask = useCallback((taskId: string, targetStatus: StatusId, targetIndex?: number) => {
@@ -737,6 +916,10 @@ export default function App() {
         onDeleteProject={handleDeleteProject}
         onToggleFavorite={handleToggleFavorite}
         onOpenSearch={() => setShowQuickSearch(true)}
+        onOpenTrashArchive={(tab) => {
+          setTrashArchiveInitialTab(tab || 'archive');
+          setShowTrashArchiveModal(true);
+        }}
         onExportData={handleExportData}
         onImportData={handleImportData}
         onResetData={handleResetData}
@@ -879,9 +1062,37 @@ export default function App() {
           setSelectedTaskProjectId(null);
         }}
         onUpdateTask={handleUpdateTask}
-        onDeleteTask={handleDeleteTask}
+        onDeleteTask={handleSoftDeleteTask}
+        onArchiveTask={handleArchiveTask}
+        onUnarchiveTask={(taskId) => handleUnarchiveTask(selectedTaskProjectId || activeProjectId, taskId)}
+        availableUsers={allAvailableUsers}
         darkMode={darkMode}
         currentUser={currentUser}
+      />
+
+      {/* Trash & Archive Management Modal */}
+      <TrashArchiveModal
+        isOpen={showTrashArchiveModal}
+        onClose={() => setShowTrashArchiveModal(false)}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        initialTab={trashArchiveInitialTab}
+        onRestoreTask={handleRestoreTask}
+        onUnarchiveTask={handleUnarchiveTask}
+        onPermanentlyDeleteTask={handlePermanentDeleteTask}
+        onEmptyTrash={handleEmptyTrash}
+        onOpenTaskDetail={(task, project) => {
+          setActiveProjectId(project.id);
+          setSelectedTaskProjectId(project.id);
+          setSelectedTask(task);
+        }}
+        darkMode={darkMode}
+      />
+
+      {/* Global Toast Notifications (Top-Right Floating) */}
+      <ToastNotificationContainer
+        onOpenTask={handleOpenNotificationTask}
+        darkMode={darkMode}
       />
 
       {/* Emoji Picker Modal */}

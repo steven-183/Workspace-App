@@ -16,13 +16,16 @@ import {
   Settings, 
   UserPlus,
   Server,
-  Cloud
+  Cloud,
+  Send,
+  HelpCircle
 } from 'lucide-react';
 import { 
   getSupabaseConfig, 
   saveCustomSupabaseConfig, 
   signInWithEmail, 
   signUpWithEmail, 
+  resendConfirmationEmail,
   getSupabase 
 } from '../lib/supabase';
 
@@ -53,8 +56,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isEmailUnconfirmed, setIsEmailUnconfirmed] = useState(false);
 
   // Supabase direct config
   const [supabaseUrl, setSupabaseUrl] = useState('');
@@ -69,6 +74,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsConfigured(config.isConfigured);
       setErrorMessage(null);
       setSuccessMessage(null);
+      setIsEmailUnconfirmed(false);
     }
   }, [isOpen]);
 
@@ -78,6 +84,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
+    setIsEmailUnconfirmed(false);
 
     if (!email.trim()) {
       setErrorMessage('Vui lòng nhập địa chỉ email.');
@@ -98,10 +105,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsSubmitting(false);
 
       if (error) {
-        setErrorMessage(error.includes('Invalid login credentials') 
-          ? 'Email hoặc mật khẩu không chính xác.' 
-          : error
-        );
+        const lower = error.toLowerCase();
+        if (lower.includes('email not confirmed') || lower.includes('email_not_confirmed')) {
+          setIsEmailUnconfirmed(true);
+          setErrorMessage('Email của bạn chưa được xác nhận trong hệ thống Supabase.');
+        } else if (lower.includes('invalid login credentials')) {
+          setErrorMessage('Email hoặc mật khẩu không chính xác.');
+        } else {
+          setErrorMessage(error);
+        }
         return;
       }
 
@@ -133,6 +145,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
+    setIsEmailUnconfirmed(false);
 
     if (!email.trim()) {
       setErrorMessage('Vui lòng nhập địa chỉ email.');
@@ -158,6 +171,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsSubmitting(false);
 
       if (error) {
+        if (error.toLowerCase().includes('email')) {
+          setIsEmailUnconfirmed(true);
+        }
         setErrorMessage(error);
         return;
       }
@@ -169,6 +185,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           onClose();
         }, 800);
       } else {
+        setIsEmailUnconfirmed(true);
         setSuccessMessage('Tài khoản đã được tạo! Vui lòng kiểm tra email của bạn để xác thực.');
       }
     } else {
@@ -189,6 +206,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           onClose();
         }, 500);
       }, 300);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email.trim()) {
+      setErrorMessage('Vui lòng nhập email trước khi gửi lại yêu cầu xác nhận.');
+      return;
+    }
+
+    setIsResending(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const res = await resendConfirmationEmail(email.trim());
+    setIsResending(false);
+
+    if (res.success) {
+      setSuccessMessage(`Đã gửi lại link xác thực đến ${email.trim()}. Vui lòng kiểm tra hộp thư (kể cả mục Spam/Thư rác)!`);
+    } else {
+      setErrorMessage(res.error || 'Không thể gửi lại email xác thực.');
     }
   };
 
@@ -324,7 +361,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs flex items-start gap-2">
               <AlertCircle size={15} className="shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+              <div className="space-y-1">
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Email Unconfirmed Help & Action Box */}
+          {isEmailUnconfirmed && (
+            <div className={`p-3.5 rounded-xl border space-y-2.5 text-xs ${
+              darkMode ? 'bg-amber-950/30 border-amber-800/60 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}>
+              <div className="flex items-start gap-2">
+                <HelpCircle size={15} className="shrink-0 text-amber-500 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">Tại sao có thông báo "Email not confirmed"?</p>
+                  <p className="text-[11px] leading-relaxed opacity-90">
+                    Mặc định tài khoản Supabase yêu cầu người dùng phải bấm vào đường link trong email xác thực để kích hoạt trước khi được phép đăng nhập.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={isResending || !email.trim()}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 text-[11px]"
+                >
+                  <Send size={12} />
+                  <span>{isResending ? 'Đang gửi...' : 'Gửi lại email xác thực'}</span>
+                </button>
+              </div>
+
+              <div className="text-[10.5px] border-t border-amber-200/50 dark:border-amber-800/40 pt-2 opacity-85 space-y-0.5">
+                <p className="font-semibold text-amber-600 dark:text-amber-400">💡 Mẹo cho Admin (Đăng nhập ngay không cần xác thực):</p>
+                <p>Vào <strong>Supabase Dashboard</strong> → <strong>Authentication</strong> → <strong>Providers</strong> → chọn <strong>Email</strong> → Tắt mục <strong>"Confirm email"</strong> → Nhấn <strong>Save</strong>.</p>
+              </div>
             </div>
           )}
 

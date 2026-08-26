@@ -54,8 +54,12 @@ import {
   Archive,
   RotateCcw,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Crown,
+  UserCheck,
+  UserPlus
 } from 'lucide-react';
+import { UserAutofillDropdown } from './UserAutofillDropdown';
 
 interface TaskDetailModalProps {
   task: Task | null;
@@ -68,6 +72,7 @@ interface TaskDetailModalProps {
   onUnarchiveTask?: (taskId: string) => void;
   darkMode: boolean;
   currentUser?: User | null;
+  availableUsers?: User[];
 }
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -81,6 +86,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onUnarchiveTask,
   darkMode,
   currentUser,
+  availableUsers = [],
 }) => {
   if (!isOpen || !task) return null;
 
@@ -88,10 +94,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'comments' | 'activity' | 'attachments'>('comments');
   const [newSubtaskText, setNewSubtaskText] = useState('');
   const [showTagMenu, setShowTagMenu] = useState(false);
+  const [showCreatorMenu, setShowCreatorMenu] = useState(false);
   const [showAssigneeMenu, setShowAssigneeMenu] = useState(false);
-  const [newAssigneeName, setNewAssigneeName] = useState('');
   const [showFollowerMenu, setShowFollowerMenu] = useState(false);
-  const [newFollowerName, setNewFollowerName] = useState('');
   const [commentInput, setCommentInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -197,12 +202,26 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     });
   };
 
+  // Set / Change Task Creator
+  const handleSetCreator = (user: User) => {
+    logActivity('general', `Đã chọn người tạo công việc là ${user.name}`, { creator: user });
+    dispatchTaskEvent({
+      project,
+      task,
+      actor: actorUser,
+      type: 'property_change',
+      title: 'Người tạo công việc',
+      message: `${actorUser.name} đã đặt người tạo công việc là ${user.name}`,
+    });
+    setShowCreatorMenu(false);
+  };
+
   // Assignee toggle
   const handleToggleAssignee = (user: User) => {
     const currentAssignees = task.assignees || [];
-    const exists = currentAssignees.some((u) => u.id === user.id);
+    const exists = currentAssignees.some((u) => u.id === user.id || (user.email && u.email?.toLowerCase() === user.email?.toLowerCase()));
     const updated = exists 
-      ? currentAssignees.filter((u) => u.id !== user.id)
+      ? currentAssignees.filter((u) => u.id !== user.id && (!user.email || u.email?.toLowerCase() !== user.email?.toLowerCase()))
       : [...currentAssignees, user];
 
     logActivity(
@@ -235,9 +254,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   // Follower toggle
   const handleToggleFollower = (user: User) => {
     const currentFollowers = task.followers || [];
-    const exists = currentFollowers.some((u) => u.id === user.id || (user.email && u.email === user.email));
+    const exists = currentFollowers.some((u) => u.id === user.id || (user.email && u.email?.toLowerCase() === user.email?.toLowerCase()));
     const updated = exists 
-      ? currentFollowers.filter((u) => u.id !== user.id && (!user.email || u.email !== user.email))
+      ? currentFollowers.filter((u) => u.id !== user.id && (!user.email || u.email?.toLowerCase() !== user.email?.toLowerCase()))
       : [...currentFollowers, user];
 
     logActivity(
@@ -685,6 +704,62 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
               </div>
 
+              {/* Creator Property */}
+              <div className="grid grid-cols-3 items-center gap-2">
+                <div className="flex items-center gap-2 text-[#9b9a97]">
+                  <Crown size={14} className="text-amber-500" />
+                  <span>Người tạo</span>
+                </div>
+                <div className="col-span-2 relative">
+                  <div className="flex items-center gap-2">
+                    {task.creator ? (
+                      <div
+                        onClick={() => setShowCreatorMenu(!showCreatorMenu)}
+                        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-colors ${
+                          darkMode ? 'bg-[#262626] border-[#383838] hover:bg-[#303030]' : 'bg-[#f7f6f3] border-[#e3e2e0] hover:bg-[#efede9]'
+                        }`}
+                        title="Bấm để đổi người tạo công việc"
+                      >
+                        <img
+                          src={task.creator.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(task.creator.name)}&backgroundColor=2383e2`}
+                          alt={task.creator.name}
+                          referrerPolicy="no-referrer"
+                          className="w-4 h-4 rounded-full object-cover shrink-0"
+                        />
+                        <span className="font-semibold">{task.creator.name}</span>
+                        {task.creator.email && (
+                          <span className="text-[10px] text-[#9b9a97] hidden sm:inline">({task.creator.email})</span>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowCreatorMenu(!showCreatorMenu)}
+                        className={`px-2 py-1 rounded-xl border text-xs flex items-center gap-1.5 transition-colors ${
+                          darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f]'
+                        }`}
+                      >
+                        <UserPlus size={13} />
+                        <span>Gán người tạo</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {showCreatorMenu && (
+                    <UserAutofillDropdown
+                      availableUsers={availableUsers}
+                      selectedUsers={task.creator ? [task.creator] : []}
+                      onToggleUser={(u) => handleSetCreator(u)}
+                      onClose={() => setShowCreatorMenu(false)}
+                      title="Chọn người tạo công việc"
+                      placeholder="Tìm tên hoặc email người tạo..."
+                      isSingleSelect={true}
+                      currentUser={currentUser}
+                      darkMode={darkMode}
+                    />
+                  )}
+                </div>
+              </div>
+
               {/* Assignees Property */}
               <div className="grid grid-cols-3 items-center gap-2">
                 <div className="flex items-center gap-2 text-[#9b9a97]">
@@ -695,13 +770,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {(task.assignees || []).map((u) => (
                       <span
-                        key={u.id}
+                        key={u.id || u.email}
                         onClick={() => handleToggleAssignee(u)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium cursor-pointer hover:opacity-80 ${
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${
                           darkMode ? 'bg-[#2a2a2a] border-[#3a3a3a]' : 'bg-[#f1f1ef] border-[#e3e2e0]'
                         }`}
+                        title="Bấm để bỏ người phụ trách này"
                       >
-                        <img src={u.avatar} alt={u.name} referrerPolicy="no-referrer" className="w-3.5 h-3.5 rounded-full" />
+                        <img
+                          src={u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name)}&backgroundColor=2383e2`}
+                          alt={u.name}
+                          referrerPolicy="no-referrer"
+                          className="w-3.5 h-3.5 rounded-full object-cover"
+                        />
                         <span>{u.name}</span>
                         <X size={10} className="text-[#9b9a97]" />
                       </span>
@@ -709,8 +790,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                     <button
                       onClick={() => setShowAssigneeMenu(!showAssigneeMenu)}
-                      className={`p-1 rounded-md border text-[11px] flex items-center gap-1 ${
-                        darkMode ? 'border-[#3a3a3a] text-[#888]' : 'border-[#e3e2e0] text-[#787774]'
+                      className={`p-1 px-2 rounded-xl border text-[11px] font-medium flex items-center gap-1 transition-colors ${
+                        darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white hover:bg-[#2a2a2a]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#f5f5f5]'
                       }`}
                     >
                       <Plus size={12} />
@@ -719,68 +800,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </div>
 
                   {showAssigneeMenu && (
-                    <div className={`absolute top-full left-0 mt-1 w-64 rounded-xl shadow-xl border p-2 z-30 space-y-2 ${
-                      darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-                    }`}>
-                      {currentUser && (
-                        <div>
-                          <div className="text-[10px] text-[#9b9a97] mb-1 font-semibold">Tài khoản của bạn:</div>
-                          <button
-                            onClick={() => handleToggleAssignee(currentUser)}
-                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors ${
-                              (task.assignees || []).some((u) => u.id === currentUser.id)
-                                ? (darkMode ? 'bg-[#333]' : 'bg-blue-50 text-blue-600')
-                                : (darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 truncate">
-                              <img src={currentUser.avatar} alt={currentUser.name} referrerPolicy="no-referrer" className="w-4 h-4 rounded-full" />
-                              <span className="truncate font-medium">{currentUser.name} (Bạn)</span>
-                            </div>
-                            {(task.assignees || []).some((u) => u.id === currentUser.id) && <Check size={13} className="text-blue-500 shrink-0" />}
-                          </button>
-                        </div>
-                      )}
-
-                      <div>
-                        <div className="text-[10px] text-[#9b9a97] mb-1 font-semibold">Thêm người phụ trách mới:</div>
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            if (!newAssigneeName.trim()) return;
-                            const name = newAssigneeName.trim();
-                            const newMember: User = {
-                              id: `u-${Date.now()}`,
-                              name,
-                              email: `${name.toLowerCase().replace(/\s+/g, '')}@company.com`,
-                              avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=2383e2`,
-                              color: '#2383e2',
-                            };
-                            handleToggleAssignee(newMember);
-                            setNewAssigneeName('');
-                            setShowAssigneeMenu(false);
-                          }}
-                          className="flex items-center gap-1"
-                        >
-                          <input
-                            type="text"
-                            placeholder="Tên thành viên..."
-                            value={newAssigneeName}
-                            onChange={(e) => setNewAssigneeName(e.target.value)}
-                            className={`flex-1 px-2 py-1 text-xs rounded-md border outline-none ${
-                              darkMode ? 'bg-[#1e1e1e] border-[#383838] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
-                            }`}
-                          />
-                          <button
-                            type="submit"
-                            disabled={!newAssigneeName.trim()}
-                            className="px-2 py-1 text-xs bg-[#2383e2] text-white font-semibold rounded-md disabled:opacity-40"
-                          >
-                            Thêm
-                          </button>
-                        </form>
-                      </div>
-                    </div>
+                    <UserAutofillDropdown
+                      availableUsers={availableUsers}
+                      selectedUsers={task.assignees || []}
+                      onToggleUser={(u) => handleToggleAssignee(u)}
+                      onClose={() => setShowAssigneeMenu(false)}
+                      title="Chọn người phụ trách"
+                      placeholder="Gõ tên hoặc email thành viên..."
+                      isSingleSelect={false}
+                      currentUser={currentUser}
+                      darkMode={darkMode}
+                    />
                   )}
                 </div>
               </div>
@@ -796,10 +826,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     {currentUser && (
                       <button
                         onClick={() => handleToggleFollower(currentUser)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl text-[11px] font-semibold border transition-colors ${
                           isCurrentUserFollowing
                             ? 'bg-blue-50 border-blue-200 text-[#2383e2] dark:bg-blue-950/60 dark:border-blue-800'
-                            : (darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f]')
+                            : (darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white hover:bg-[#2a2a2a]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#f5f5f5]')
                         }`}
                         title={isCurrentUserFollowing ? 'Bấm để bỏ theo dõi' : 'Bấm để nhận thông báo về task này'}
                       >
@@ -812,12 +842,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <span
                         key={u.id || u.email}
                         onClick={() => handleToggleFollower(u)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium cursor-pointer hover:opacity-80 ${
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${
                           darkMode ? 'bg-[#2a2a2a] border-[#3a3a3a]' : 'bg-[#f1f1ef] border-[#e3e2e0]'
                         }`}
                         title="Bấm để xóa người theo dõi"
                       >
-                        <img src={u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name)}&backgroundColor=2383e2`} alt={u.name} referrerPolicy="no-referrer" className="w-3.5 h-3.5 rounded-full" />
+                        <img
+                          src={u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name)}&backgroundColor=2383e2`}
+                          alt={u.name}
+                          referrerPolicy="no-referrer"
+                          className="w-3.5 h-3.5 rounded-full object-cover"
+                        />
                         <span>{u.name}</span>
                         <X size={10} className="text-[#9b9a97]" />
                       </span>
@@ -825,8 +860,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                     <button
                       onClick={() => setShowFollowerMenu(!showFollowerMenu)}
-                      className={`p-1 rounded-md border text-[11px] flex items-center gap-1 ${
-                        darkMode ? 'border-[#3a3a3a] text-[#888]' : 'border-[#e3e2e0] text-[#787774]'
+                      className={`p-1 px-2 rounded-xl border text-[11px] font-medium flex items-center gap-1 transition-colors ${
+                        darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white hover:bg-[#2a2a2a]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#f5f5f5]'
                       }`}
                     >
                       <Plus size={12} />
@@ -835,46 +870,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </div>
 
                   {showFollowerMenu && (
-                    <div className={`absolute top-full left-0 mt-1 w-64 rounded-xl shadow-xl border p-2 z-30 space-y-2 ${
-                      darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-                    }`}>
-                      <div className="text-[10px] text-[#9b9a97] font-semibold">Thêm người theo dõi:</div>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!newFollowerName.trim()) return;
-                          const name = newFollowerName.trim();
-                          const newFollower: User = {
-                            id: `u-${Date.now()}`,
-                            name,
-                            email: `${name.toLowerCase().replace(/\s+/g, '')}@company.com`,
-                            avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=2383e2`,
-                            color: '#2383e2',
-                          };
-                          handleToggleFollower(newFollower);
-                          setNewFollowerName('');
-                          setShowFollowerMenu(false);
-                        }}
-                        className="flex items-center gap-1"
-                      >
-                        <input
-                          type="text"
-                          placeholder="Tên người theo dõi..."
-                          value={newFollowerName}
-                          onChange={(e) => setNewFollowerName(e.target.value)}
-                          className={`flex-1 px-2 py-1 text-xs rounded-md border outline-none ${
-                            darkMode ? 'bg-[#1e1e1e] border-[#383838] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
-                          }`}
-                        />
-                        <button
-                          type="submit"
-                          disabled={!newFollowerName.trim()}
-                          className="px-2 py-1 text-xs bg-[#2383e2] text-white font-semibold rounded-md disabled:opacity-40"
-                        >
-                          Thêm
-                        </button>
-                      </form>
-                    </div>
+                    <UserAutofillDropdown
+                      availableUsers={availableUsers}
+                      selectedUsers={task.followers || []}
+                      onToggleUser={(u) => handleToggleFollower(u)}
+                      onClose={() => setShowFollowerMenu(false)}
+                      title="Chọn người theo dõi"
+                      placeholder="Gõ tên hoặc email người theo dõi..."
+                      isSingleSelect={false}
+                      currentUser={currentUser}
+                      darkMode={darkMode}
+                    />
                   )}
                 </div>
               </div>

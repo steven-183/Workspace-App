@@ -122,9 +122,59 @@ export const dispatchTaskEvent = ({
   // Dispatch custom window event so any listening component can update immediately
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('app_notifications_updated', { detail: updated }));
+    
+    // Also trigger toast notification on the top right
+    if (newNotifications.length > 0) {
+      window.dispatchEvent(new CustomEvent('app_show_toast', { detail: newNotifications[0] }));
+    }
   }
 
   return updated;
+};
+
+/**
+ * Manually trigger a standalone toast notification
+ */
+export const triggerToast = (toastData: {
+  title: string;
+  message: string;
+  type?: TaskNotification['type'];
+  taskTitle?: string;
+  projectTitle?: string;
+  taskId?: string;
+  projectId?: string;
+  actor?: {
+    name: string;
+    avatar?: string;
+    email?: string;
+  };
+}) => {
+  if (typeof window !== 'undefined') {
+    const notif: TaskNotification = {
+      id: `toast-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      recipientId: 'all',
+      taskId: toastData.taskId || '',
+      taskTitle: toastData.taskTitle || '',
+      projectId: toastData.projectId || '',
+      projectTitle: toastData.projectTitle || '',
+      actor: toastData.actor ? {
+        id: 'actor',
+        name: toastData.actor.name,
+        avatar: toastData.actor.avatar,
+        email: toastData.actor.email,
+      } : {
+        id: 'system',
+        name: 'Hệ thống',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      },
+      type: toastData.type || 'property_change',
+      title: toastData.title,
+      message: toastData.message,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+    };
+    window.dispatchEvent(new CustomEvent('app_show_toast', { detail: notif }));
+  }
 };
 
 /**

@@ -113,6 +113,7 @@ export interface Task {
   startTime?: string; // HH:mm
   dueTime?: string;   // HH:mm (default preset is '18:00')
   assignees: User[];
+  creator?: User;
   followers?: User[];
   tags: Tag[];
   progress?: number;  // optional backwards compatibility

@@ -26,6 +26,7 @@ interface TrashArchiveModalProps {
   onPermanentlyDeleteTask: (projectId: string, taskId: string) => void;
   onEmptyTrash: (projectId: string) => void;
   onOpenTaskDetail?: (task: Task, project: ProjectPage) => void;
+  initialTab?: 'archive' | 'trash';
   darkMode: boolean;
 }
 
@@ -39,13 +40,20 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
   onPermanentlyDeleteTask,
   onEmptyTrash,
   onOpenTaskDetail,
+  initialTab = 'archive',
   darkMode,
 }) => {
-  const [activeTab, setActiveTab] = useState<'archive' | 'trash'>('archive');
+  const [activeTab, setActiveTab] = useState<'archive' | 'trash'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>('all');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
