@@ -107,7 +107,12 @@ export const TableView: React.FC<TableViewProps> = ({
                       value={titleDraft}
                       onChange={(e) => setTitleDraft(e.target.value)}
                       onBlur={() => handleTitleSubmit(task.id)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleTitleSubmit(task.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                          handleTitleSubmit(task.id);
+                        }
+                      }}
                       className="bg-transparent outline-none border-b border-blue-500 w-full font-medium"
                       autoFocus
                     />

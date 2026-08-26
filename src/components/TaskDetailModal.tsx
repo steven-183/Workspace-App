@@ -101,6 +101,30 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
+  // Local state for smooth Vietnamese typing without IME interruptions
+  const [localTitle, setLocalTitle] = useState(task.title || '');
+  const [localDescription, setLocalDescription] = useState(
+    task.description !== undefined
+      ? task.description
+      : (task.blocks && task.blocks.length > 0
+          ? task.blocks.map((b) => b.content).join('\n')
+          : '')
+  );
+  const [isComposingComment, setIsComposingComment] = useState(false);
+  const [isComposingSubtask, setIsComposingSubtask] = useState(false);
+
+  // Sync local title & description when opening or switching tasks
+  React.useEffect(() => {
+    setLocalTitle(task.title || '');
+    setLocalDescription(
+      task.description !== undefined
+        ? task.description
+        : (task.blocks && task.blocks.length > 0
+            ? task.blocks.map((b) => b.content).join('\n')
+            : '')
+    );
+  }, [task.id]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const actorUser: User = currentUser || {
@@ -202,16 +226,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     });
   };
 
-  // Set / Change Task Creator
+  // Set / Change Task Reviewer (Người duyệt)
   const handleSetCreator = (user: User) => {
-    logActivity('general', `Đã chọn người tạo công việc là ${user.name}`, { creator: user });
+    logActivity('general', `Đã chọn người duyệt công việc là ${user.name}`, { creator: user });
     dispatchTaskEvent({
       project,
       task,
       actor: actorUser,
       type: 'property_change',
-      title: 'Người tạo công việc',
-      message: `${actorUser.name} đã đặt người tạo công việc là ${user.name}`,
+      title: 'Người duyệt công việc',
+      message: `${actorUser.name} đã đặt người duyệt công việc là ${user.name}`,
     });
     setShowCreatorMenu(false);
   };
@@ -569,13 +593,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <div>
               <input
                 type="text"
-                value={task.title}
+                value={localTitle}
                 onChange={(e) => {
                   const title = e.target.value;
+                  setLocalTitle(title);
                   onUpdateTask(task.id, { title });
                 }}
                 onBlur={() => {
-                  logActivity('general', `Đã đổi tên công việc thành "${task.title}"`);
+                  if (localTitle.trim() && localTitle !== task.title) {
+                    onUpdateTask(task.id, { title: localTitle.trim() });
+                    logActivity('general', `Đã đổi tên công việc thành "${localTitle.trim()}"`);
+                  }
                 }}
                 placeholder="Tên công việc..."
                 className={`text-xl sm:text-2xl font-bold w-full bg-transparent outline-none placeholder-[#9b9a97] ${
@@ -704,11 +732,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Creator Property */}
+              {/* Reviewer (Người duyệt) Property */}
               <div className="grid grid-cols-3 items-center gap-2">
                 <div className="flex items-center gap-2 text-[#9b9a97]">
-                  <Crown size={14} className="text-amber-500" />
-                  <span>Người tạo</span>
+                  <UserCheck size={14} className="text-purple-500" />
+                  <span>Người duyệt</span>
                 </div>
                 <div className="col-span-2 relative">
                   <div className="flex items-center gap-2">
@@ -718,7 +746,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-colors ${
                           darkMode ? 'bg-[#262626] border-[#383838] hover:bg-[#303030]' : 'bg-[#f7f6f3] border-[#e3e2e0] hover:bg-[#efede9]'
                         }`}
-                        title="Bấm để đổi người tạo công việc"
+                        title="Bấm để đổi người duyệt"
                       >
                         <img
                           src={task.creator.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(task.creator.name)}&backgroundColor=2383e2`}
@@ -739,7 +767,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         }`}
                       >
                         <UserPlus size={13} />
-                        <span>Gán người tạo</span>
+                        <span>Gán người duyệt</span>
                       </button>
                     )}
                   </div>
@@ -750,8 +778,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       selectedUsers={task.creator ? [task.creator] : []}
                       onToggleUser={(u) => handleSetCreator(u)}
                       onClose={() => setShowCreatorMenu(false)}
-                      title="Chọn người tạo công việc"
-                      placeholder="Tìm tên hoặc email người tạo..."
+                      title="Chọn người duyệt công việc"
+                      placeholder="Tìm tên hoặc email người duyệt..."
                       isSingleSelect={true}
                       currentUser={currentUser}
                       darkMode={darkMode}
@@ -984,12 +1012,28 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </div>
                 ))}
 
-                <form onSubmit={handleAddSubtask} className="flex items-center gap-2 pt-1">
+                <form
+                  onSubmit={(e) => {
+                    if (isComposingSubtask) {
+                      e.preventDefault();
+                      return;
+                    }
+                    handleAddSubtask(e);
+                  }}
+                  className="flex items-center gap-2 pt-1"
+                >
                   <input
                     type="text"
                     placeholder="Thêm mục cần làm... (nhấn Enter)"
                     value={newSubtaskText}
                     onChange={(e) => setNewSubtaskText(e.target.value)}
+                    onCompositionStart={() => setIsComposingSubtask(true)}
+                    onCompositionEnd={() => setIsComposingSubtask(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.nativeEvent.isComposing || isComposingSubtask || e.keyCode === 229)) {
+                        e.stopPropagation();
+                      }
+                    }}
                     className={`flex-1 text-xs px-3 py-2 border rounded-lg outline-none ${
                       darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-white border-[#e3e2e0]'
                     }`}
@@ -1013,7 +1057,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <span>Nội dung ghi chú</span>
                 </h3>
                 <span className="text-[11px] text-[#9b9a97]">
-                  {(task.description || '').length} ký tự
+                  {localDescription.length} ký tự
                 </span>
               </div>
 
@@ -1021,15 +1065,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fdfdfc] border-[#e8e7e4]'
               }`}>
                 <textarea
-                  value={
-                    task.description !== undefined
-                      ? task.description
-                      : (task.blocks && task.blocks.length > 0
-                          ? task.blocks.map((b) => b.content).join('\n')
-                          : '')
-                  }
+                  value={localDescription}
                   onChange={(e) => {
                     const val = e.target.value;
+                    setLocalDescription(val);
                     onUpdateTask(task.id, {
                       description: val,
                       blocks: val ? [{ id: 'b-main', type: 'paragraph', content: val }] : [],
@@ -1146,12 +1185,28 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     ))
                   )}
 
-                  <form onSubmit={handleAddComment} className="flex items-center gap-2 pt-1">
+                  <form
+                    onSubmit={(e) => {
+                      if (isComposingComment) {
+                        e.preventDefault();
+                        return;
+                      }
+                      handleAddComment(e);
+                    }}
+                    className="flex items-center gap-2 pt-1"
+                  >
                     <input
                       type="text"
                       placeholder="Viết bình luận hoặc trao đổi về công việc này..."
                       value={commentInput}
                       onChange={(e) => setCommentInput(e.target.value)}
+                      onCompositionStart={() => setIsComposingComment(true)}
+                      onCompositionEnd={() => setIsComposingComment(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.nativeEvent.isComposing || isComposingComment || e.keyCode === 229)) {
+                          e.stopPropagation();
+                        }
+                      }}
                       className={`flex-1 text-xs px-3 py-2 border rounded-lg outline-none ${
                         darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-white border-[#e3e2e0]'
                       }`}

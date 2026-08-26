@@ -25,7 +25,6 @@ import {
   LogOut,
   User as UserIcon,
   Sparkles,
-  Edit2,
   Check,
   FolderPlus,
   Bell,
@@ -90,26 +89,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSetTheme,
 }) => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
   const [hoveredPageId, setHoveredPageId] = useState<string | null>(null);
   const [collapsedTeams, setCollapsedTeams] = useState<Record<TeamId, boolean>>({
     performance_marketing: false,
     book_growth: false,
     product: false,
   });
-
-  const [workspaceName, setWorkspaceName] = useState<string>(() => {
-    return localStorage.getItem('notion_workspace_name') || 'Notion Workspace';
-  });
-  const [isEditingWorkspaceName, setIsEditingWorkspaceName] = useState(false);
-  const [tempWorkspaceName, setTempWorkspaceName] = useState(workspaceName);
-
-  const handleSaveWorkspaceName = (name: string) => {
-    const trimmed = name.trim() || 'Notion Workspace';
-    setWorkspaceName(trimmed);
-    localStorage.setItem('notion_workspace_name', trimmed);
-    setIsEditingWorkspaceName(false);
-  };
 
   const toggleTeam = (teamId: TeamId) => {
     setCollapsedTeams((prev) => ({ ...prev, [teamId]: !prev[teamId] }));
@@ -146,13 +131,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const favoriteProjects = projects.filter((p) => p.isFavorite);
   const regularProjects = projects.filter((p) => !p.isFavorite);
 
-  // Count uncompleted tasks assigned to the current user
+  // Count uncompleted tasks assigned to or awaiting review from the current user
   const myPendingTasksCount = currentUser
     ? projects.reduce((acc, p) => {
-        const count = p.tasks.filter((t) => 
+        const count = (p.tasks || []).filter((t) => 
+          !t.isDeleted &&
+          !t.isArchived &&
           t.status !== 'done' &&
-          t.assignees?.some(
-            (u) => u.id === currentUser.id || u.email?.toLowerCase() === currentUser.email?.toLowerCase()
+          (
+            t.assignees?.some(
+              (u) => u.id === currentUser.id || (currentUser.email && u.email?.toLowerCase() === currentUser.email.toLowerCase())
+            ) ||
+            (t.status === 'in_review' && t.creator && (t.creator.id === currentUser.id || (currentUser.email && t.creator.email?.toLowerCase() === currentUser.email.toLowerCase())))
           )
         ).length;
         return acc + count;
@@ -301,132 +291,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }`}>
       {/* Top Workspace Header & User Profile */}
       <div className="p-3 border-b border-transparent">
-        {/* Workspace Account Menu */}
-        <div className="relative">
-          {isEditingWorkspaceName ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSaveWorkspaceName(tempWorkspaceName);
-              }}
-              className="flex items-center gap-1 p-1"
-            >
-              <input
-                type="text"
-                autoFocus
-                value={tempWorkspaceName}
-                onChange={(e) => setTempWorkspaceName(e.target.value)}
-                onBlur={() => handleSaveWorkspaceName(tempWorkspaceName)}
-                className={`w-full px-2 py-1 text-xs font-semibold rounded-md border outline-none ${
-                  darkMode ? 'bg-[#2a2a2a] border-[#444] text-white' : 'bg-white border-[#2383e2] text-[#37352f]'
-                }`}
-                placeholder="Tên Workspace..."
-              />
-              <button
-                type="submit"
-                className="p-1 text-white bg-[#2383e2] rounded-md shrink-0"
-                title="Lưu"
-              >
-                <Check size={13} />
-              </button>
-            </form>
-          ) : (
-            <button
-              onClick={() => setShowWorkspaceMenu(!showWorkspaceMenu)}
-              className={`w-full flex items-center justify-between p-1.5 rounded-lg transition-colors ${
-                darkMode ? 'hover:bg-[#2c2c2c]' : 'hover:bg-[#ebeae7]'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 overflow-hidden">
-                <div className="w-6 h-6 rounded-md bg-[#2383e2] text-white flex items-center justify-center font-bold text-xs shadow-xs uppercase shrink-0">
-                  {workspaceName.charAt(0) || 'N'}
-                </div>
-                <div className="text-left truncate">
-                  <div className="text-sm font-semibold truncate leading-tight flex items-center gap-1">
-                    <span>{workspaceName}</span>
-                  </div>
-                  <div className="text-[11px] text-[#9b9a97] truncate">
-                    {currentUser ? currentUser.name : 'Chưa đăng nhập'}
-                  </div>
-                </div>
+        {/* Workspace Account Header */}
+        <div className="flex items-center justify-between p-1.5 rounded-lg">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <img
+              src="/qanda_logo.jpg"
+              alt="QANDA Logo"
+              className="w-7 h-7 rounded-lg object-cover shadow-xs border border-orange-200 dark:border-orange-900/50 shrink-0"
+            />
+            <div className="text-left truncate">
+              <div className="text-sm font-bold truncate leading-tight flex items-center gap-1 text-[#37352f] dark:text-white">
+                <span>QANDA Workspace</span>
               </div>
-              <ChevronDown size={14} className="text-[#9b9a97] shrink-0" />
-            </button>
-          )}
-
-          {/* Workspace Menu Dropdown */}
-          {showWorkspaceMenu && !isEditingWorkspaceName && (
-            <div className={`absolute top-full left-0 mt-1 w-60 rounded-xl shadow-xl border p-1.5 z-30 ${
-              darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-            }`}>
-              <div className="px-2 py-1 text-xs text-[#9b9a97]">Tài khoản hiện tại</div>
-              {currentUser ? (
-                <div className={`flex items-center gap-2 px-2 py-2 rounded-lg text-xs ${
-                  darkMode ? 'bg-[#333333]' : 'bg-[#f1f1ef]'
-                }`}>
-                  <img
-                    src={currentUser.avatar}
-                    alt={currentUser.name}
-                    referrerPolicy="no-referrer"
-                    className="w-7 h-7 rounded-full object-cover"
-                  />
-                  <div className="truncate">
-                    <div className="font-bold truncate">{currentUser.name}</div>
-                    <div className="text-[10px] text-[#9b9a97] truncate">{currentUser.email}</div>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setShowWorkspaceMenu(false);
-                    onOpenAuthModal();
-                  }}
-                  className="w-full flex items-center gap-2 px-2 py-2 text-xs font-semibold text-[#2383e2] hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
-                >
-                  <LogIn size={14} /> Đăng nhập bằng Email
-                </button>
-              )}
-
-              <div className={`my-1 border-t ${darkMode ? 'border-[#383838]' : 'border-[#ededeb]'}`} />
-              
-              <button
-                onClick={() => {
-                  setShowWorkspaceMenu(false);
-                  setTempWorkspaceName(workspaceName);
-                  setIsEditingWorkspaceName(true);
-                }}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors ${
-                  darkMode ? 'hover:bg-[#333333]' : 'hover:bg-[#f1f1ef]'
-                }`}
-              >
-                <Edit2 size={14} /> Đổi tên Workspace
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowWorkspaceMenu(false);
-                  onOpenAuthModal();
-                }}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors ${
-                  darkMode ? 'hover:bg-[#333333]' : 'hover:bg-[#f1f1ef]'
-                }`}
-              >
-                <UserIcon size={14} /> {currentUser ? 'Đổi tài khoản Email' : 'Đăng nhập'}
-              </button>
-
-              <button
-                onClick={() => {
-                  onAddProject();
-                  setShowWorkspaceMenu(false);
-                }}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors ${
-                  darkMode ? 'hover:bg-[#333333]' : 'hover:bg-[#f1f1ef]'
-                }`}
-              >
-                <Plus size={14} /> Thêm bảng công việc mới
-              </button>
+              <div className="text-[11px] text-[#9b9a97] truncate">
+                {currentUser ? currentUser.name : 'Chưa đăng nhập'}
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* SECTION: MY TASKS (Requirement 3) */}
@@ -801,7 +682,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={`flex items-center justify-between p-1.5 rounded-lg cursor-pointer transition-colors ${
             darkMode ? 'hover:bg-[#2a2a2a]' : 'hover:bg-[#ebeae7]'
           }`}
-          title="Nhấn để đổi tài khoản hoặc đăng xuất"
+          title={currentUser ? "Nhấn để quản lý hoặc đăng xuất tài khoản" : "Nhấn để đăng nhập"}
         >
           {currentUser ? (
             <div className="flex items-center gap-2 overflow-hidden">
@@ -823,8 +704,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          <div className="text-[10px] text-[#9b9a97] hover:text-blue-500 font-medium shrink-0">
-            {currentUser ? 'Đổi' : ''}
+          <div className="text-[10px] text-[#9b9a97] hover:text-red-500 font-medium shrink-0">
+            {currentUser ? 'Tài khoản' : ''}
           </div>
         </div>
 

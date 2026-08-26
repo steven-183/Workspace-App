@@ -1,6 +1,6 @@
 export type AppTheme = 'light' | 'dark' | 'qanda_pink';
 
-export type StatusId = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'blocked' | string;
+export type StatusId = 'todo' | 'in_progress' | 'in_review' | 'done' | 'blocked' | string;
 
 export type PriorityLevel = 'urgent' | 'high' | 'medium' | 'low' | 'none';
 

@@ -121,7 +121,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 value={titleInput}
                 onChange={(e) => setTitleInput(e.target.value)}
                 onBlur={handleTitleSubmit}
-                onKeyDown={(e) => e.key === 'Enter' && handleTitleSubmit()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    handleTitleSubmit();
+                  }
+                }}
                 className={`text-2xl sm:text-3xl font-bold w-full bg-transparent outline-none border-b pb-1 ${
                   darkMode ? 'text-white border-blue-500' : 'text-[#37352f] border-blue-500'
                 }`}
@@ -150,6 +155,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                   onBlur={handleDescSubmit}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                       e.preventDefault();
                       handleDescSubmit();
                     }

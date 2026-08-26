@@ -56,8 +56,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const daysHeader = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
-  // Identify unscheduled tasks (no dates or status is backlog)
-  const unscheduledTasks = tasks.filter((t) => (!t.dueDate && !t.startDate) || t.status === 'backlog');
+  // Identify unscheduled tasks (no dates set)
+  const unscheduledTasks = tasks.filter((t) => !t.dueDate && !t.startDate);
 
   // Generate calendar cells (including padding for previous and next month)
   const calendarCells = [];

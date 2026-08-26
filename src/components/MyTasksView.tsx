@@ -20,7 +20,9 @@ import {
   Sparkles,
   Inbox,
   ArrowRight,
-  LogIn
+  LogIn,
+  Eye,
+  ShieldCheck
 } from 'lucide-react';
 
 interface MyTasksViewProps {
@@ -40,7 +42,7 @@ interface MyTasksViewProps {
 }
 
 type GroupMode = 'dueDate' | 'project' | 'status';
-type StatusFilter = 'all' | 'active' | 'done';
+type StatusFilter = 'all' | 'active' | 'review' | 'done';
 
 export const MyTasksView: React.FC<MyTasksViewProps> = ({
   projects,
@@ -62,28 +64,60 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<PriorityLevel | 'all'>('all');
 
-  // Collect all tasks assigned to the current user across ALL projects
-  const myAssignedTasksWithProject = useMemo(() => {
+  // Collect all tasks where currentUser is an Assignee OR Reviewer (Người duyệt) across ALL projects
+  const myRelevantTasksWithProject = useMemo(() => {
     if (!currentUser) return [];
 
-    const list: Array<{ project: ProjectPage; task: Task }> = [];
+    const list: Array<{ project: ProjectPage; task: Task; isAssignee: boolean; isReviewer: boolean }> = [];
     projects.forEach((proj) => {
-      proj.tasks.forEach((t) => {
+      (proj.tasks || []).forEach((t) => {
         if (t.isDeleted || t.isArchived) return;
-        const isAssigned = t.assignees?.some(
-          (u) => u.id === currentUser.id || u.email?.toLowerCase() === currentUser.email?.toLowerCase()
+
+        const isAssignee = !!t.assignees?.some(
+          (u) => u.id === currentUser.id || (currentUser.email && u.email?.toLowerCase() === currentUser.email.toLowerCase())
         );
-        if (isAssigned) {
-          list.push({ project: proj, task: t });
+
+        const isReviewer = !!(
+          t.creator &&
+          (t.creator.id === currentUser.id || (currentUser.email && t.creator.email?.toLowerCase() === currentUser.email.toLowerCase()))
+        );
+
+        // Include task if user is assigned OR if user is the reviewer (and especially when waiting for review)
+        if (isAssignee || (isReviewer && t.status === 'in_review') || isReviewer) {
+          list.push({ project: proj, task: t, isAssignee, isReviewer });
         }
       });
     });
     return list;
   }, [projects, currentUser]);
 
-  // Filtered tasks based on search, statusFilter, and priorityFilter
+  // Tab counts
+  const allCount = myRelevantTasksWithProject.length;
+  const activeCount = myRelevantTasksWithProject.filter(
+    ({ isAssignee, task: t }) => isAssignee && t.status !== 'done'
+  ).length;
+  const reviewCount = myRelevantTasksWithProject.filter(
+    ({ isReviewer, task: t }) => isReviewer && t.status === 'in_review'
+  ).length;
+  const doneCount = myRelevantTasksWithProject.filter(
+    ({ isAssignee, task: t }) => isAssignee && t.status === 'done'
+  ).length;
+
+  // Filtered tasks based on search, statusFilter (All / Đang làm / Cần review / Đã xong), and priorityFilter
   const filteredList = useMemo(() => {
-    let result = myAssignedTasksWithProject;
+    let result = myRelevantTasksWithProject;
+
+    // Apply status filter
+    if (statusFilter === 'active') {
+      // Đang làm: hiện tất cả task mà user là người phụ trách và chưa hoàn thành (bao gồm cả task đang Chờ Review)
+      result = result.filter(({ isAssignee, task: t }) => isAssignee && t.status !== 'done');
+    } else if (statusFilter === 'review') {
+      // Cần review: hiện task có trạng thái "Chờ review" (in_review) mà user là "Người duyệt" (creator)
+      result = result.filter(({ isReviewer, task: t }) => isReviewer && t.status === 'in_review');
+    } else if (statusFilter === 'done') {
+      // Đã xong: hiện task đã hoàn thành mà user là người phụ trách
+      result = result.filter(({ isAssignee, task: t }) => isAssignee && t.status === 'done');
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -91,14 +125,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
         ({ task: t }) =>
           t.title.toLowerCase().includes(q) ||
           t.tags?.some((tag) => tag.label.toLowerCase().includes(q)) ||
-          t.subtasks?.some((st) => st.text.toLowerCase().includes(q))
+          t.subtasks?.some((st) => st.text.toLowerCase().includes(q)) ||
+          (t.creator?.name && t.creator.name.toLowerCase().includes(q))
       );
-    }
-
-    if (statusFilter === 'active') {
-      result = result.filter(({ task: t }) => t.status !== 'done');
-    } else if (statusFilter === 'done') {
-      result = result.filter(({ task: t }) => t.status === 'done');
     }
 
     if (priorityFilter !== 'all') {
@@ -106,15 +135,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     }
 
     return result;
-  }, [myAssignedTasksWithProject, searchQuery, statusFilter, priorityFilter]);
-
-  // Statistics
-  const totalCount = myAssignedTasksWithProject.length;
-  const doneCount = myAssignedTasksWithProject.filter(({ task: t }) => t.status === 'done').length;
-  const activeCount = totalCount - doneCount;
-  const overdueCount = myAssignedTasksWithProject.filter(
-    ({ task: t }) => isOverdue(t.dueDate, t.status)
-  ).length;
+  }, [myRelevantTasksWithProject, searchQuery, statusFilter, priorityFilter]);
 
   if (!currentUser) {
     return (
@@ -127,7 +148,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           </div>
           <h2 className="text-xl font-bold mb-2">Đăng nhập để xem công việc của bạn</h2>
           <p className="text-xs text-[#9b9a97] mb-6 leading-relaxed">
-            Đăng nhập bằng địa chỉ Email của bạn để tự động lọc và theo dõi tất cả các công việc được giao trên mọi dự án.
+            Đăng nhập bằng địa chỉ Email của bạn để tự động lọc và theo dõi tất cả các công việc được giao hoặc cần bạn duyệt trên mọi dự án.
           </p>
           <button
             onClick={onOpenAuthModal}
@@ -213,20 +234,19 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     const statusMap: Record<string, string> = {
       todo: 'Cần làm',
       in_progress: 'Đang làm',
-      in_review: 'Đang duyệt',
+      in_review: 'Chờ review',
       done: 'Đã hoàn thành',
       blocked: 'Bị nghẽn',
-      backlog: 'Chưa xếp lịch',
     };
 
-    const statusOrder: StatusId[] = ['in_progress', 'todo', 'in_review', 'blocked', 'backlog', 'done'];
+    const statusOrder: StatusId[] = ['in_progress', 'in_review', 'todo', 'blocked', 'done'];
     statusOrder.forEach((st) => {
       const sItems = filteredList.filter(({ task: t }) => t.status === st);
       if (sItems.length > 0) {
         groupedSections.push({
           id: st,
           title: statusMap[st] || st,
-          icon: <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />,
+          icon: st === 'in_review' ? <Eye size={13} className="text-purple-500" /> : <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />,
           items: sItems,
         });
       }
@@ -258,7 +278,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#9b9a97] mt-0.5">
-                {currentUser.email} • Tổng hợp các công việc được giao trên toàn bộ Workspace
+                {currentUser.email} • Theo dõi việc được giao và các công việc cần bạn duyệt
               </p>
             </div>
           </div>
@@ -286,30 +306,43 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
 
         {/* Metric Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
-          <div className={`p-3 rounded-xl border ${
-            darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-          }`}>
-            <div className="text-[11px] text-[#9b9a97] font-medium">Tổng việc được giao</div>
-            <div className="text-xl font-bold mt-1 text-[#37352f] dark:text-white">{totalCount}</div>
+          <div className={`p-3 rounded-xl border cursor-pointer transition-colors ${
+            statusFilter === 'all'
+              ? (darkMode ? 'bg-[#2a2a2a] border-[#555]' : 'bg-blue-50/50 border-[#2383e2]')
+              : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
+          }`} onClick={() => setStatusFilter('all')}>
+            <div className="text-[11px] text-[#9b9a97] font-medium">Tổng việc liên quan</div>
+            <div className="text-xl font-bold mt-1 text-[#37352f] dark:text-white">{allCount}</div>
           </div>
 
-          <div className={`p-3 rounded-xl border ${
-            darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-          }`}>
-            <div className="text-[11px] text-[#9b9a97] font-medium">Đang xử lý</div>
+          <div className={`p-3 rounded-xl border cursor-pointer transition-colors ${
+            statusFilter === 'active'
+              ? (darkMode ? 'bg-[#2a2a2a] border-amber-500' : 'bg-amber-50/50 border-amber-400')
+              : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
+          }`} onClick={() => setStatusFilter('active')}>
+            <div className="text-[11px] text-[#9b9a97] font-medium">Đang làm (Phụ trách)</div>
             <div className="text-xl font-bold mt-1 text-amber-500">{activeCount}</div>
           </div>
 
-          <div className={`p-3 rounded-xl border ${
-            darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-          }`}>
-            <div className="text-[11px] text-[#9b9a97] font-medium">Quá hạn</div>
-            <div className="text-xl font-bold mt-1 text-red-500">{overdueCount}</div>
+          <div className={`p-3 rounded-xl border cursor-pointer transition-colors ${
+            statusFilter === 'review'
+              ? (darkMode ? 'bg-purple-950/60 border-purple-500' : 'bg-purple-50 border-purple-400')
+              : (reviewCount > 0
+                  ? (darkMode ? 'bg-purple-950/30 border-purple-800/60' : 'bg-purple-50/50 border-purple-200')
+                  : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'))
+          }`} onClick={() => setStatusFilter('review')}>
+            <div className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold flex items-center justify-between">
+              <span>Cần review (Bạn duyệt)</span>
+              {reviewCount > 0 && <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />}
+            </div>
+            <div className="text-xl font-bold mt-1 text-purple-600 dark:text-purple-400">{reviewCount}</div>
           </div>
 
-          <div className={`p-3 rounded-xl border ${
-            darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-          }`}>
+          <div className={`p-3 rounded-xl border cursor-pointer transition-colors ${
+            statusFilter === 'done'
+              ? (darkMode ? 'bg-[#2a2a2a] border-emerald-500' : 'bg-emerald-50/50 border-emerald-400')
+              : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
+          }`} onClick={() => setStatusFilter('done')}>
             <div className="text-[11px] text-[#9b9a97] font-medium">Đã hoàn thành</div>
             <div className="text-xl font-bold mt-1 text-emerald-500">{doneCount}</div>
           </div>
@@ -320,21 +353,61 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       <div className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
         darkMode ? 'bg-[#202020] border-[#313131]' : 'bg-white border-[#e8e7e4]'
       }`}>
-        {/* Status Filters */}
+        {/* Status Filters: Requirement 3 - Tất cả, Đang làm, Cần review, Đã xong */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(['all', 'active', 'done'] as StatusFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                statusFilter === f
-                  ? (darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
-                  : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
-              }`}
-            >
-              {f === 'all' ? `Tất cả (${totalCount})` : f === 'active' ? `Đang làm (${activeCount})` : `Đã xong (${doneCount})`}
-            </button>
-          ))}
+          <button
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              statusFilter === 'all'
+                ? (darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
+                : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
+            }`}
+          >
+            Tất cả ({allCount})
+          </button>
+
+          <button
+            onClick={() => setStatusFilter('active')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              statusFilter === 'active'
+                ? (darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
+                : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
+            }`}
+          >
+            Đang làm ({activeCount})
+          </button>
+
+          <button
+            onClick={() => setStatusFilter('review')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              statusFilter === 'review'
+                ? (darkMode ? 'bg-purple-700 text-white shadow-xs' : 'bg-purple-600 text-white shadow-xs')
+                : (reviewCount > 0
+                    ? (darkMode ? 'text-purple-400 hover:bg-purple-950/40 font-bold' : 'text-purple-700 hover:bg-purple-50 font-bold')
+                    : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]'))
+            }`}
+          >
+            <Eye size={13} />
+            <span>Cần review</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              statusFilter === 'review' 
+                ? 'bg-white/25 text-white' 
+                : (reviewCount > 0 ? 'bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300' : 'bg-gray-100 dark:bg-neutral-800 text-gray-500')
+            }`}>
+              {reviewCount}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setStatusFilter('done')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              statusFilter === 'done'
+                ? (darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
+                : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
+            }`}
+          >
+            Đã xong ({doneCount})
+          </button>
         </div>
 
         {/* Right side controls */}
@@ -402,11 +475,12 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              {section.items.map(({ project: p, task: t }) => {
+              {section.items.map(({ project: p, task: t, isAssignee, isReviewer }) => {
                 const overdue = isOverdue(t.dueDate, t.status);
                 const isDone = t.status === 'done';
+                const isInReview = t.status === 'in_review';
                 const col = p.columns.find((c) => c.id === t.status);
-                const colStyle = col ? NOTION_COLORS[col.color] : NOTION_COLORS.gray;
+                const colStyle = col ? NOTION_COLORS[col.color] : (isInReview ? NOTION_COLORS.purple : NOTION_COLORS.gray);
                 const priority = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.none;
 
                 return (
@@ -414,12 +488,14 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                     key={t.id}
                     onClick={() => onTaskClick(p.id, t)}
                     className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-2xs ${
-                      darkMode
-                        ? 'bg-[#222] border-[#313131] hover:bg-[#282828]'
-                        : 'bg-white border-[#e3e2e0] hover:border-[#c5c4c1]'
+                      isInReview && isReviewer
+                        ? (darkMode ? 'bg-purple-950/20 border-purple-800/50 hover:bg-purple-950/30' : 'bg-purple-50/30 border-purple-200 hover:border-purple-300')
+                        : (darkMode
+                            ? 'bg-[#222] border-[#313131] hover:bg-[#282828]'
+                            : 'bg-white border-[#e3e2e0] hover:border-[#c5c4c1]')
                     }`}
                   >
-                    {/* Left: Checkbox + Title + Project Badge */}
+                    {/* Left: Checkbox + Title + Project Badge + Role Badge */}
                     <div className="flex items-center gap-3 flex-1 overflow-hidden pr-3">
                       <button
                         onClick={(e) => {
@@ -451,6 +527,14 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                             {t.title}
                           </span>
 
+                          {/* Role indication badges */}
+                          {isInReview && isReviewer && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-semibold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
+                              <UserCheck size={10} />
+                              <span>Cần bạn duyệt</span>
+                            </span>
+                          )}
+
                           {/* Project Tag */}
                           <span
                             onClick={(e) => {
@@ -467,15 +551,24 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                           </span>
                         </div>
 
-                        {/* Subtasks or tags preview */}
-                        {t.subtasks && t.subtasks.length > 0 && (
-                          <div className="text-[10px] text-[#9b9a97] mt-0.5 flex items-center gap-1.5">
-                            <CheckSquare size={10} />
-                            <span>
-                              {t.subtasks.filter((s) => s.completed).length}/{t.subtasks.length} việc con hoàn thành
-                            </span>
-                          </div>
-                        )}
+                        {/* Subtasks or Reviewer info preview */}
+                        <div className="flex items-center gap-3 text-[10px] text-[#9b9a97] mt-0.5">
+                          {t.subtasks && t.subtasks.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <CheckSquare size={10} />
+                              <span>
+                                {t.subtasks.filter((s) => s.completed).length}/{t.subtasks.length} việc con
+                              </span>
+                            </div>
+                          )}
+
+                          {t.creator && (
+                            <div className="hidden md:flex items-center gap-1">
+                              <UserCheck size={10} className="text-purple-500" />
+                              <span>Người duyệt: {t.creator.name}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -490,7 +583,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
 
                       {/* Status */}
                       <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${colStyle.badgeBg}`}>
-                        {col?.title || t.status}
+                        {col?.title || (t.status === 'in_review' ? 'Chờ review' : t.status)}
                       </span>
 
                       {/* Due Date */}
@@ -524,7 +617,11 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             <p className="font-semibold text-sm text-[#5a5a58] dark:text-[#bbb]">
               Không tìm thấy công việc nào phù hợp với bộ lọc.
             </p>
-            <p>Bạn đã hoàn thành hết hoặc chưa có công việc mới nào được giao.</p>
+            <p>
+              {statusFilter === 'review'
+                ? 'Hiện tại không có công việc nào ở trạng thái "Chờ review" mà bạn là Người duyệt.'
+                : 'Bạn đã hoàn thành hết hoặc chưa có công việc mới nào được giao.'}
+            </p>
           </div>
         )}
       </div>

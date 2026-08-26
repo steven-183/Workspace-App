@@ -19,10 +19,9 @@ export const SAMPLE_TAGS: Tag[] = [
 ];
 
 export const DEFAULT_COLUMNS: StatusColumn[] = [
-  { id: 'backlog', title: 'Chưa xếp lịch', color: 'gray', icon: 'Inbox' },
   { id: 'todo', title: 'Cần làm', color: 'blue', icon: 'Circle' },
   { id: 'in_progress', title: 'Đang làm', color: 'yellow', icon: 'Clock' },
-  { id: 'in_review', title: 'Đang duyệt', color: 'purple', icon: 'Eye' },
+  { id: 'in_review', title: 'Chờ review', color: 'purple', icon: 'Eye' },
   { id: 'done', title: 'Hoàn thành', color: 'green', icon: 'CheckCircle2' },
   { id: 'blocked', title: 'Bị nghẽn', color: 'red', icon: 'AlertTriangle' },
 ];

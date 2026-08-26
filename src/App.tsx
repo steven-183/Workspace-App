@@ -37,7 +37,7 @@ const THEME_KEY = 'notion_tasks_app_theme';
 const USER_KEY = 'notion_tasks_logged_in_user_v1';
 
 export default function App() {
-  // Load initial projects from localStorage or default with teamId migration
+  // Load initial projects from localStorage or default with teamId & column migration
   const [projects, setProjects] = useState<ProjectPage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -72,12 +72,43 @@ export default function App() {
             const cleanViews = (p.views || ['kanban', 'timeline', 'table', 'calendar']).filter((v: string) => v !== 'list') as ViewType[];
             const safeViews: ViewType[] = cleanViews.length > 0 ? cleanViews : ['kanban', 'timeline', 'table', 'calendar'];
             const safeActiveView: ViewType = (p.activeView as string) === 'list' ? 'kanban' : (p.activeView || 'kanban');
+
+            // Sanitize columns: Remove 'backlog' (Chưa xếp lịch) and rename 'Đang duyệt' to 'Chờ review'
+            const filteredCols = (p.columns || DEFAULT_COLUMNS)
+              .filter((c) => c.id !== 'backlog')
+              .map((c) => {
+                if (c.id === 'in_review' && (c.title === 'Đang duyệt' || !c.title)) {
+                  return { ...c, title: 'Chờ review' };
+                }
+                return c;
+              });
+
+            // Ensure in_review column exists
+            const hasInReview = filteredCols.some((c) => c.id === 'in_review');
+            const finalCols = hasInReview
+              ? filteredCols
+              : [
+                  ...filteredCols.slice(0, 2),
+                  { id: 'in_review', title: 'Chờ review', color: 'purple' as const, icon: 'Eye' },
+                  ...filteredCols.slice(2),
+                ];
+
+            // Migrate any tasks that had 'backlog' status to 'todo'
+            const sanitizedTasks = (p.tasks || []).map((t) => {
+              if (t.status === 'backlog') {
+                return { ...t, status: 'todo' as StatusId };
+              }
+              return t;
+            });
+
             return {
               ...p,
               teamId,
               category: p.category || (teamId === 'performance_marketing' ? 'Performance Marketing' : teamId === 'book_growth' ? 'Book Growth' : 'Product'),
               views: safeViews,
               activeView: safeActiveView,
+              columns: finalCols,
+              tasks: sanitizedTasks,
             };
           });
         }

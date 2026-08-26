@@ -121,6 +121,7 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
           className="bg-transparent outline-none text-xs w-full placeholder-[#9b9a97] text-[#37352f] dark:text-white"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
               e.preventDefault();
               if (filteredUsers.length > 0) {
                 onToggleUser(filteredUsers[0]);

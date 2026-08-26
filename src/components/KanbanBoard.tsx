@@ -49,6 +49,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   // Quick card creation states
   const [quickAddColumnId, setQuickAddColumnId] = useState<StatusId | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState('');
+  const [isComposingQuickAdd, setIsComposingQuickAdd] = useState(false);
+  const [isComposingNewCol, setIsComposingNewCol] = useState(false);
 
   // Column management modal/form
   const [showAddColumn, setShowAddColumn] = useState(false);
@@ -383,8 +385,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       placeholder="Nhập tên công việc mới..."
                       value={quickAddTitle}
                       onChange={(e) => setQuickAddTitle(e.target.value)}
+                      onCompositionStart={() => setIsComposingQuickAdd(true)}
+                      onCompositionEnd={() => setIsComposingQuickAdd(false)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
+                          if (e.nativeEvent.isComposing || isComposingQuickAdd || e.keyCode === 229) {
+                            return;
+                          }
                           e.preventDefault();
                           handleQuickAddSubmit(col.id);
                         } else if (e.key === 'Escape') {
@@ -450,12 +457,28 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 </button>
               </div>
 
-              <form onSubmit={handleCreateColumn} className="space-y-3">
+              <form
+                onSubmit={(e) => {
+                  if (isComposingNewCol) {
+                    e.preventDefault();
+                    return;
+                  }
+                  handleCreateColumn(e);
+                }}
+                className="space-y-3"
+              >
                 <input
                   type="text"
                   placeholder="Tên cột (ví dụ: Đang đợi duyệt...)"
                   value={newColumnTitle}
                   onChange={(e) => setNewColumnTitle(e.target.value)}
+                  onCompositionStart={() => setIsComposingNewCol(true)}
+                  onCompositionEnd={() => setIsComposingNewCol(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.nativeEvent.isComposing || isComposingNewCol || e.keyCode === 229)) {
+                      e.stopPropagation();
+                    }
+                  }}
                   className={`w-full text-xs px-2.5 py-2 border rounded-lg outline-none ${
                     darkMode ? 'bg-[#1e1e1e] border-[#3a3a3a] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
                   }`}
