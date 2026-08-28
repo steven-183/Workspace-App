@@ -256,20 +256,31 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
 
     const allTasks: Task[] = (tasksData || []).map((row: any) => ({
       id: row.id,
-      title: row.title,
-      status: row.status,
+      title: row.title || 'Không có tiêu đề',
+      description: row.description || '',
+      status: row.status || 'todo',
       priority: row.priority || 'none',
       startDate: row.start_date || row.startDate || '',
       dueDate: row.due_date || row.dueDate || '',
+      startTime: row.start_time || row.startTime || undefined,
+      dueTime: row.due_time || row.dueTime || undefined,
       assignees: row.assignees || [],
+      creator: row.creator || undefined,
+      followers: row.followers || [],
       tags: row.tags || [],
       progress: row.progress || 0,
       subtasks: row.subtasks || [],
       blocks: row.blocks || [],
+      comments: row.comments || [],
+      attachments: row.attachments || [],
+      activityLogs: row.activity_logs || row.activityLogs || [],
+      isArchived: Boolean(row.is_archived || row.isArchived),
+      isDeleted: Boolean(row.is_deleted || row.isDeleted),
+      deletedAt: row.deleted_at || row.deletedAt || undefined,
       coverImage: row.cover_image,
       icon: row.icon,
-      createdAt: row.created_at || '',
-      updatedAt: row.updated_at || '',
+      createdAt: row.created_at || row.createdAt || '',
+      updatedAt: row.updated_at || row.updatedAt || '',
       order: row.order || 1,
     }));
 
@@ -333,16 +344,29 @@ export async function syncProjectToSupabase(project: ProjectPage): Promise<void>
         id: t.id,
         project_id: project.id,
         title: t.title,
+        description: t.description || '',
         status: t.status,
         priority: t.priority,
         start_date: t.startDate,
         due_date: t.dueDate,
-        progress: t.progress,
-        order: t.order,
+        start_time: t.startTime || null,
+        due_time: t.dueTime || null,
+        progress: t.progress || 0,
+        order: t.order || 1,
         assignees: t.assignees || [],
+        creator: t.creator || null,
+        followers: t.followers || [],
         tags: t.tags || [],
         subtasks: t.subtasks || [],
         blocks: t.blocks || [],
+        comments: t.comments || [],
+        attachments: t.attachments || [],
+        activity_logs: t.activityLogs || [],
+        is_archived: Boolean(t.isArchived),
+        is_deleted: Boolean(t.isDeleted),
+        deleted_at: t.deletedAt || null,
+        cover_image: t.coverImage || null,
+        icon: t.icon || null,
         updated_at: new Date().toISOString(),
       }));
 
@@ -370,25 +394,37 @@ export async function syncTaskToSupabase(projectId: string, task: Task): Promise
   if (!supabase) return;
 
   try {
-    await supabase.from('tasks').upsert(
-      {
-        id: task.id,
-        project_id: projectId,
-        title: task.title,
-        status: task.status,
-        priority: task.priority,
-        start_date: task.startDate,
-        due_date: task.dueDate,
-        progress: task.progress,
-        order: task.order,
-        assignees: task.assignees || [],
-        tags: task.tags || [],
-        subtasks: task.subtasks || [],
-        blocks: task.blocks || [],
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+    const payload = {
+      id: task.id,
+      project_id: projectId,
+      title: task.title,
+      description: task.description || '',
+      status: task.status,
+      priority: task.priority,
+      start_date: task.startDate,
+      due_date: task.dueDate,
+      start_time: task.startTime || null,
+      due_time: task.dueTime || null,
+      progress: task.progress || 0,
+      order: task.order || 1,
+      assignees: task.assignees || [],
+      creator: task.creator || null,
+      followers: task.followers || [],
+      tags: task.tags || [],
+      subtasks: task.subtasks || [],
+      blocks: task.blocks || [],
+      comments: task.comments || [],
+      attachments: task.attachments || [],
+      activity_logs: task.activityLogs || [],
+      is_archived: Boolean(task.isArchived),
+      is_deleted: Boolean(task.isDeleted),
+      deleted_at: task.deletedAt || null,
+      cover_image: task.coverImage || null,
+      icon: task.icon || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
   } catch (err) {
     console.error('Error syncing task to Supabase:', err);
   }
@@ -399,7 +435,10 @@ export async function deleteTaskFromSupabase(taskId: string): Promise<void> {
   if (!supabase) return;
 
   try {
-    await supabase.from('tasks').delete().eq('id', taskId);
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    if (error) {
+      console.warn('Supabase deleteTask warning:', error);
+    }
   } catch (err) {
     console.error('Error deleting task from Supabase:', err);
   }

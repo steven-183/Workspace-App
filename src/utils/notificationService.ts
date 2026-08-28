@@ -1,4 +1,5 @@
 import { ProjectPage, Task, TaskComment, TaskNotification, User } from '../types';
+import { getSupabase } from '../lib/supabase';
 
 const NOTIFICATIONS_STORAGE_KEY = 'notion_task_notifications_v1';
 
@@ -26,7 +27,7 @@ export const saveStoredNotifications = (notifications: TaskNotification[]) => {
 };
 
 /**
- * Creates notifications for all followers and assignees of a task
+ * Creates notifications for all followers, assignees, and reviewer (creator) of a task
  */
 export const dispatchTaskEvent = ({
   project,
@@ -43,8 +44,12 @@ export const dispatchTaskEvent = ({
   title: string;
   message: string;
 }): TaskNotification[] => {
-  // Collect all stakeholders: followers + assignees
+  // Collect all stakeholders: followers + assignees + creator/reviewer
   const stakeholders = new Map<string, User>();
+
+  if (task.creator && (task.creator.id || task.creator.email)) {
+    stakeholders.set(task.creator.id || task.creator.email || '', task.creator);
+  }
 
   (task.followers || []).forEach((u) => {
     if (u && (u.id || u.email)) {
@@ -58,22 +63,21 @@ export const dispatchTaskEvent = ({
     }
   });
 
-  // If newly assigned in the event, also make sure they are included
   const newNotifications: TaskNotification[] = [];
   const now = new Date().toISOString();
 
   stakeholders.forEach((user, key) => {
-    // Don't send notification to the person who performed the action if they are the actor
+    // Don't send notification to the actor themselves
     if (
       (actor.id && user.id === actor.id) ||
-      (actor.email && user.email?.toLowerCase() === actor.email.toLowerCase())
+      (actor.email && user.email?.toLowerCase() === actor.email?.toLowerCase())
     ) {
       return;
     }
 
     newNotifications.push({
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      recipientId: key,
+      recipientId: user.id || user.email || key,
       taskId: task.id,
       taskTitle: task.title,
       projectId: project.id,
@@ -92,7 +96,7 @@ export const dispatchTaskEvent = ({
     });
   });
 
-  // Also create a broadcast/general notification entry if stakeholders empty
+  // If stakeholders empty, broadcast general entry
   if (stakeholders.size === 0) {
     newNotifications.push({
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -116,14 +120,28 @@ export const dispatchTaskEvent = ({
   }
 
   const current = getStoredNotifications();
-  const updated = [...newNotifications, ...current].slice(0, 100); // keep up to 100 recent
+  const updated = [...newNotifications, ...current].slice(0, 100);
   saveStoredNotifications(updated);
 
-  // Dispatch custom window event so any listening component can update immediately
+  // Broadcast to Supabase Realtime channel so all other devices/tabs get it
+  const supabase = getSupabase();
+  if (supabase && newNotifications.length > 0) {
+    try {
+      const channel = supabase.channel('workspace_realtime_broadcast');
+      channel.send({
+        type: 'broadcast',
+        event: 'new_task_notification',
+        payload: { notifications: newNotifications },
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Dispatch custom window event so local components update immediately
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('app_notifications_updated', { detail: updated }));
     
-    // Also trigger toast notification on the top right
     if (newNotifications.length > 0) {
       window.dispatchEvent(new CustomEvent('app_show_toast', { detail: newNotifications[0] }));
     }

@@ -17,7 +17,7 @@ import { TrashArchiveModal } from './components/TrashArchiveModal';
 import { ToastNotificationContainer } from './components/ToastNotificationContainer';
 import { Lock, LogIn, ShieldAlert } from 'lucide-react';
 import { addDays, getTodayString, isDueThisWeek, isDueToday, isOverdue } from './utils/dateUtils';
-import { getStoredNotifications, saveStoredNotifications, triggerToast } from './utils/notificationService';
+import { getStoredNotifications, saveStoredNotifications, triggerToast, dispatchTaskEvent } from './utils/notificationService';
 import { 
   getSupabase, 
   fetchAllProjectsFromSupabase, 
@@ -320,8 +320,67 @@ export default function App() {
       }
     });
 
+    // 4. Realtime subscription for tasks, projects, and broadcast notifications
+    const realtimeChannel = supabase
+      .channel('workspace_realtime_events')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tasks' },
+        () => {
+          fetchAllProjectsFromSupabase().then((remoteProjects) => {
+            if (remoteProjects && remoteProjects.length > 0) {
+              setProjects(remoteProjects);
+            }
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'projects' },
+        () => {
+          fetchAllProjectsFromSupabase().then((remoteProjects) => {
+            if (remoteProjects && remoteProjects.length > 0) {
+              setProjects(remoteProjects);
+            }
+          });
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'new_task_notification' },
+        ({ payload }: { payload: any }) => {
+          if (payload?.notifications && Array.isArray(payload.notifications)) {
+            const current = getStoredNotifications();
+            const existingIds = new Set(current.map((n) => n.id));
+            const fresh = payload.notifications.filter((n: TaskNotification) => !existingIds.has(n.id));
+            if (fresh.length > 0) {
+              const merged = [...fresh, ...current].slice(0, 100);
+              setNotifications(merged);
+              saveStoredNotifications(merged);
+
+              // Check if notification is for current user
+              const savedUserStr = localStorage.getItem(USER_KEY);
+              const activeUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+              if (activeUser) {
+                const myNotifs = fresh.filter((n: TaskNotification) =>
+                  n.recipientId === 'all' ||
+                  n.recipientId === activeUser.id ||
+                  n.recipientId === activeUser.email ||
+                  (activeUser.email && n.recipientId?.toLowerCase() === activeUser.email.toLowerCase())
+                );
+                if (myNotifs.length > 0) {
+                  window.dispatchEvent(new CustomEvent('app_show_toast', { detail: myNotifs[0] }));
+                }
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       authListener?.subscription.unsubscribe();
+      supabase.removeChannel(realtimeChannel);
     };
   }, []);
 

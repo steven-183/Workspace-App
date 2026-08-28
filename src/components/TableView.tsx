@@ -11,7 +11,8 @@ import {
   CheckSquare, 
   MoreHorizontal,
   ArrowUpDown,
-  Tag as TagIcon
+  Tag as TagIcon,
+  UserCheck
 } from 'lucide-react';
 
 interface TableViewProps {
@@ -48,20 +49,21 @@ export const TableView: React.FC<TableViewProps> = ({
 
   return (
     <div className="w-full h-full overflow-x-auto p-6 sm:p-10 no-scrollbar">
-      <div className={`min-w-[840px] rounded-xl border overflow-hidden shadow-xs ${
+      <div className={`min-w-[880px] rounded-xl border overflow-hidden shadow-xs ${
         darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
       }`}>
         {/* Table Header */}
         <div className={`grid grid-cols-12 border-b text-xs font-semibold text-[#9b9a97] uppercase tracking-wider py-2.5 px-4 ${
           darkMode ? 'bg-[#181818] border-[#2f2f2f]' : 'bg-[#f7f6f3] border-[#e8e7e4]'
         }`}>
-          <div className="col-span-5 flex items-center gap-1.5">
+          <div className="col-span-4 flex items-center gap-1.5">
             <span>Tên công việc</span>
           </div>
           <div className="col-span-2">Trạng thái</div>
           <div className="col-span-2">Mức ưu tiên</div>
           <div className="col-span-2">Thời hạn</div>
-          <div className="col-span-1 text-right">Người làm</div>
+          <div className="col-span-1 text-center">Người làm</div>
+          <div className="col-span-1 text-right">Người duyệt</div>
         </div>
 
         {/* Rows */}
@@ -82,7 +84,7 @@ export const TableView: React.FC<TableViewProps> = ({
               >
                 {/* Title */}
                 <div 
-                  className="col-span-5 flex items-center gap-2 pr-3 overflow-hidden"
+                  className="col-span-4 flex items-center gap-2 pr-3 overflow-hidden"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -153,7 +155,7 @@ export const TableView: React.FC<TableViewProps> = ({
                             });
                             setActiveDropdown(null);
                           }}
-                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
                             task.status === c.id ? 'bg-blue-50 dark:bg-blue-950 font-semibold' : (darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
                           }`}
                         >
@@ -211,18 +213,38 @@ export const TableView: React.FC<TableViewProps> = ({
                 </div>
 
                 {/* Assignees */}
-                <div className="col-span-1 flex items-center justify-end -space-x-1.5">
+                <div className="col-span-1 flex items-center justify-center -space-x-1.5">
                   {(task.assignees || []).slice(0, 2).map((user) => (
                     <img
                       key={user.id}
                       src={user.avatar}
                       alt={user.name}
-                      title={user.name}
+                      title={`Người làm: ${user.name}`}
                       referrerPolicy="no-referrer"
-                      className="w-5 h-5 rounded-full ring-2 ring-white dark:ring-[#1e1e1e]"
+                      className="w-5 h-5 rounded-full ring-2 ring-white dark:ring-[#1e1e1e] object-cover"
                     />
                   ))}
                   {(!task.assignees || task.assignees.length === 0) && (
+                    <span className="text-[11px] text-[#9b9a97]">--</span>
+                  )}
+                </div>
+
+                {/* Reviewer (Người duyệt) */}
+                <div className="col-span-1 flex items-center justify-end">
+                  {task.creator ? (
+                    <div 
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/50"
+                      title={`Người duyệt: ${task.creator.name}`}
+                    >
+                      <img
+                        src={task.creator.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(task.creator.name)}`}
+                        alt={task.creator.name}
+                        referrerPolicy="no-referrer"
+                        className="w-4 h-4 rounded-full object-cover shrink-0"
+                      />
+                      <span className="text-[10px] font-semibold truncate max-w-[50px]">{task.creator.name}</span>
+                    </div>
+                  ) : (
                     <span className="text-[11px] text-[#9b9a97]">--</span>
                   )}
                 </div>

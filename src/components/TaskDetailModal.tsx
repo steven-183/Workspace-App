@@ -228,14 +228,15 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   // Set / Change Task Reviewer (Người duyệt)
   const handleSetCreator = (user: User) => {
+    const updatedTask: Task = { ...task, creator: user };
     logActivity('general', `Đã chọn người duyệt công việc là ${user.name}`, { creator: user });
     dispatchTaskEvent({
       project,
-      task,
+      task: updatedTask,
       actor: actorUser,
-      type: 'property_change',
-      title: 'Người duyệt công việc',
-      message: `${actorUser.name} đã đặt người duyệt công việc là ${user.name}`,
+      type: 'assigned',
+      title: 'Được gắn làm Người duyệt',
+      message: `${actorUser.name} đã gắn bạn làm người duyệt cho công việc "${task.title}"`,
     });
     setShowCreatorMenu(false);
   };
@@ -248,6 +249,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       ? currentAssignees.filter((u) => u.id !== user.id && (!user.email || u.email?.toLowerCase() !== user.email?.toLowerCase()))
       : [...currentAssignees, user];
 
+    const updatedTask: Task = { ...task, assignees: updated };
+
     logActivity(
       'assignee_change',
       `Đã ${exists ? 'bỏ phân công' : 'phân công công việc cho'} ${user.name}`,
@@ -257,20 +260,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     if (!exists) {
       dispatchTaskEvent({
         project,
-        task,
+        task: updatedTask,
         actor: actorUser,
         type: 'assigned',
-        title: 'Giao việc mới',
-        message: `${actorUser.name} đã phân công công việc này cho ${user.name}`,
+        title: 'Được giao việc mới',
+        message: `${actorUser.name} đã giao việc "${task.title}" cho bạn`,
       });
     } else {
       dispatchTaskEvent({
         project,
-        task,
+        task: updatedTask,
         actor: actorUser,
-        type: 'property_change',
-        title: 'Cập nhật người phụ trách',
-        message: `${actorUser.name} đã bỏ phân công ${user.name}`,
+        type: 'assigned',
+        title: 'Bỏ phân công việc',
+        message: `${actorUser.name} đã bỏ phân công việc "${task.title}"`,
       });
     }
   };

@@ -2,7 +2,7 @@ import React from 'react';
 import { ProjectPage, Task } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
 import { formatShortDate, isDueToday, isOverdue } from '../utils/dateUtils';
-import { Check, Plus, Calendar, AlertCircle } from 'lucide-react';
+import { Check, Plus, Calendar, AlertCircle, UserCheck } from 'lucide-react';
 
 interface ListViewProps {
   project: ProjectPage;
@@ -111,17 +111,28 @@ export const ListView: React.FC<ListViewProps> = ({
 
                 {/* Assignees */}
                 {task.assignees && task.assignees.length > 0 && (
-                  <div className="flex items-center -space-x-1.5">
+                  <div className="flex items-center -space-x-1.5" title={`Người làm: ${task.assignees.map(u => u.name).join(', ')}`}>
                     {task.assignees.map((u) => (
                       <img
                         key={u.id}
                         src={u.avatar}
                         alt={u.name}
-                        title={u.name}
+                        title={`Người làm: ${u.name}`}
                         referrerPolicy="no-referrer"
-                        className="w-4 h-4 rounded-full ring-1 ring-white dark:ring-[#222]"
+                        className="w-4 h-4 rounded-full ring-1 ring-white dark:ring-[#222] object-cover"
                       />
                     ))}
+                  </div>
+                )}
+
+                {/* Người duyệt (Reviewer) */}
+                {task.creator && (
+                  <div 
+                    className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-medium border border-purple-200/50"
+                    title={`Người duyệt: ${task.creator.name}`}
+                  >
+                    <UserCheck size={10} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                    <span className="truncate max-w-[65px]">Duyệt: {task.creator.name}</span>
                   </div>
                 )}
               </div>

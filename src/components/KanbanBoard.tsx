@@ -10,13 +10,14 @@ import {
   AlertCircle, 
   Trash2, 
   Edit2, 
-  X,
-  Clock,
-  ArrowRight,
-  GripVertical,
-  Paperclip,
-  MessageSquare,
-  Archive
+  X, 
+  Clock, 
+  ArrowRight, 
+  GripVertical, 
+  Paperclip, 
+  MessageSquare, 
+  Archive,
+  UserCheck
 } from 'lucide-react';
 
 interface KanbanBoardProps {
@@ -349,17 +350,28 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                               {priority.label}
                             </span>
                           )}
+
+                          {/* Người duyệt (Reviewer) Badge */}
+                          {task.creator && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40"
+                              title={`Người duyệt: ${task.creator.name}${task.creator.email ? ` (${task.creator.email})` : ''}`}
+                            >
+                              <UserCheck size={10} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                              <span className="truncate max-w-[70px]">Duyệt: {task.creator.name}</span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Assignee Avatars Stack */}
                         {task.assignees && task.assignees.length > 0 && (
-                          <div className="flex items-center -space-x-1.5 shrink-0">
+                          <div className="flex items-center -space-x-1.5 shrink-0" title={`Người làm: ${task.assignees.map(u => u.name).join(', ')}`}>
                             {task.assignees.slice(0, 3).map((user) => (
                               <img
                                 key={user.id}
                                 src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                                 alt={user.name}
-                                title={user.name}
+                                title={`Người làm: ${user.name}`}
                                 referrerPolicy="no-referrer"
                                 className="w-5 h-5 rounded-full ring-2 ring-white dark:ring-[#232323] object-cover"
                               />
