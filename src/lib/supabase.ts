@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, User as SupabaseAuthUser } from '@supabase/supabase-js';
-import { ProjectPage, Task, User } from '../types';
+import { ProjectPage, Task, User, TeamId } from '../types';
 
 const ENV_URL = ((import.meta as any).env?.VITE_SUPABASE_URL as string) || '';
 const ENV_KEY = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string) || '';
@@ -290,6 +290,31 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
         return rawTask?.project_id === row.id;
       });
 
+      const cat = (row.category || '').toLowerCase().trim();
+      const t = (row.title || '').toLowerCase().trim();
+      let derivedTeamId: TeamId = 'product';
+      if (
+        cat === 'book growth' ||
+        cat.includes('book') ||
+        cat.includes('sách') ||
+        t.includes('sách') ||
+        t.includes('book') ||
+        t.includes('độc giả') ||
+        t.includes('bản quyền')
+      ) {
+        derivedTeamId = 'book_growth';
+      } else if (
+        cat === 'performance marketing' ||
+        cat.includes('performance') ||
+        cat.includes('marketing') ||
+        cat.includes('ads') ||
+        t.includes('performance') ||
+        t.includes('marketing') ||
+        t.includes('ads')
+      ) {
+        derivedTeamId = 'performance_marketing';
+      }
+
       return {
         id: row.id,
         title: row.title,
@@ -297,6 +322,7 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
         coverImage: row.cover_image,
         description: row.description || '',
         category: row.category || 'Dự án',
+        teamId: (row.team_id as TeamId) || derivedTeamId,
         isFavorite: row.is_favorite || false,
         views: row.views || ['kanban', 'timeline', 'table', 'calendar', 'list'],
         activeView: row.active_view || 'kanban',
@@ -343,12 +369,12 @@ export async function syncProjectToSupabase(project: ProjectPage): Promise<void>
       const taskRows = project.tasks.map((t) => ({
         id: t.id,
         project_id: project.id,
-        title: t.title,
+        title: t.title || 'Không có tiêu đề',
         description: t.description || '',
         status: t.status,
         priority: t.priority,
-        start_date: t.startDate,
-        due_date: t.dueDate,
+        start_date: t.startDate ? t.startDate : null,
+        due_date: t.dueDate ? t.dueDate : null,
         start_time: t.startTime || null,
         due_time: t.dueTime || null,
         progress: t.progress || 0,
@@ -377,12 +403,53 @@ export async function syncProjectToSupabase(project: ProjectPage): Promise<void>
   }
 }
 
-export async function deleteProjectFromSupabase(projectId: string): Promise<void> {
+export async function deleteProjectFromSupabase(projectId: string, tasksToTrash?: Task[]): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
 
   try {
-    await supabase.from('tasks').delete().eq('project_id', projectId);
+    const now = new Date().toISOString();
+    // Update all tasks of this project to be marked as deleted (moved to trash)
+    await supabase
+      .from('tasks')
+      .update({ is_deleted: true, deleted_at: now })
+      .eq('project_id', projectId);
+
+    // If specific tasks were supplied, ensure their state is upserted
+    if (tasksToTrash && tasksToTrash.length > 0) {
+      const taskRows = tasksToTrash.map((t) => ({
+        id: t.id,
+        project_id: projectId,
+        title: t.title || 'Không có tiêu đề',
+        description: t.description || '',
+        status: t.status,
+        priority: t.priority,
+        start_date: t.startDate ? t.startDate : null,
+        due_date: t.dueDate ? t.dueDate : null,
+        start_time: t.startTime || null,
+        due_time: t.dueTime || null,
+        progress: t.progress || 0,
+        order: t.order || 1,
+        assignees: t.assignees || [],
+        creator: t.creator || null,
+        followers: t.followers || [],
+        tags: t.tags || [],
+        subtasks: t.subtasks || [],
+        blocks: t.blocks || [],
+        comments: t.comments || [],
+        attachments: t.attachments || [],
+        activity_logs: t.activityLogs || [],
+        is_archived: Boolean(t.isArchived),
+        is_deleted: true,
+        deleted_at: t.deletedAt || now,
+        cover_image: t.coverImage || null,
+        icon: t.icon || null,
+        updated_at: now,
+      }));
+      await supabase.from('tasks').upsert(taskRows, { onConflict: 'id' });
+    }
+
+    // Delete project from projects table
     await supabase.from('projects').delete().eq('id', projectId);
   } catch (err) {
     console.error('Error deleting project from Supabase:', err);
@@ -397,12 +464,12 @@ export async function syncTaskToSupabase(projectId: string, task: Task): Promise
     const payload = {
       id: task.id,
       project_id: projectId,
-      title: task.title,
+      title: task.title || 'Không có tiêu đề',
       description: task.description || '',
       status: task.status,
       priority: task.priority,
-      start_date: task.startDate,
-      due_date: task.dueDate,
+      start_date: task.startDate ? task.startDate : null,
+      due_date: task.dueDate ? task.dueDate : null,
       start_time: task.startTime || null,
       due_time: task.dueTime || null,
       progress: task.progress || 0,

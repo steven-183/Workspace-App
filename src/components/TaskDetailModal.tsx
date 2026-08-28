@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   NotionColor, 
   PriorityLevel, 
@@ -23,7 +23,7 @@ import {
   isDueToday, 
   isOverdue 
 } from '../utils/dateUtils';
-import { SAMPLE_TAGS, SAMPLE_USERS } from '../data/initialData';
+import { SAMPLE_TAGS } from '../data/initialData';
 import { dispatchTaskEvent } from '../utils/notificationService';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { 
@@ -40,24 +40,26 @@ import {
   AlertCircle, 
   Image as ImageIcon, 
   MessageSquare, 
-  ChevronDown,
-  Check,
-  AlignLeft,
-  Eye,
-  Paperclip,
-  Download,
-  File,
-  FileText,
-  FileSpreadsheet,
-  FileArchive,
-  History,
-  Archive,
-  RotateCcw,
-  Sparkles,
-  AlertTriangle,
-  Crown,
-  UserCheck,
-  UserPlus
+  Check, 
+  AlignLeft, 
+  Eye, 
+  Paperclip, 
+  Download, 
+  File, 
+  FileText, 
+  FileSpreadsheet, 
+  FileArchive, 
+  History, 
+  Archive, 
+  RotateCcw, 
+  Sparkles, 
+  AlertTriangle, 
+  UserCheck, 
+  UserPlus, 
+  MoreVertical, 
+  Save, 
+  Copy, 
+  CheckCircle2 
 } from 'lucide-react';
 import { UserAutofillDropdown } from './UserAutofillDropdown';
 
@@ -90,6 +92,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 }) => {
   if (!isOpen || !task) return null;
 
+  // Local draft state for task to allow explicit "Lưu" (Save) before committing to DB
+  const [draftTask, setDraftTask] = useState<Task>(() => ({ ...task }));
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSavedRecently, setIsSavedRecently] = useState(false);
   const [isFullWidth, setIsFullWidth] = useState(false);
   const [activeTab, setActiveTab] = useState<'comments' | 'activity' | 'attachments'>('comments');
   const [newSubtaskText, setNewSubtaskText] = useState('');
@@ -97,35 +103,53 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [showCreatorMenu, setShowCreatorMenu] = useState(false);
   const [showAssigneeMenu, setShowAssigneeMenu] = useState(false);
   const [showFollowerMenu, setShowFollowerMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [commentInput, setCommentInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [copyToast, setCopyToast] = useState(false);
 
-  // Local state for smooth Vietnamese typing without IME interruptions
-  const [localTitle, setLocalTitle] = useState(task.title || '');
-  const [localDescription, setLocalDescription] = useState(
-    task.description !== undefined
-      ? task.description
-      : (task.blocks && task.blocks.length > 0
-          ? task.blocks.map((b) => b.content).join('\n')
-          : '')
-  );
   const [isComposingComment, setIsComposingComment] = useState(false);
   const [isComposingSubtask, setIsComposingSubtask] = useState(false);
 
-  // Sync local title & description when opening or switching tasks
-  React.useEffect(() => {
-    setLocalTitle(task.title || '');
-    setLocalDescription(
-      task.description !== undefined
-        ? task.description
-        : (task.blocks && task.blocks.length > 0
-            ? task.blocks.map((b) => b.content).join('\n')
-            : '')
-    );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const descTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Sync draft state whenever a different task is opened
+  useEffect(() => {
+    setDraftTask({ ...task });
+    setIsDirty(false);
+    setIsSavedRecently(false);
+    setShowMoreMenu(false);
   }, [task.id]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Click outside more menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    if (showMoreMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMoreMenu]);
+
+  // Auto-resize description textarea based on content (no scrollbar inside 5 lines, fully visible)
+  const adjustDescHeight = () => {
+    if (descTextareaRef.current) {
+      descTextareaRef.current.style.height = 'auto';
+      descTextareaRef.current.style.height = `${Math.max(130, descTextareaRef.current.scrollHeight)}px`;
+    }
+  };
+
+  useEffect(() => {
+    adjustDescHeight();
+  }, [draftTask.description, isOpen]);
 
   const actorUser: User = currentUser || {
     id: 'current-user-default',
@@ -135,17 +159,44 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     color: '#2383e2',
   };
 
-  const column = project.columns.find((c) => c.id === task.status);
+  const column = project.columns.find((c) => c.id === draftTask.status);
   const colStyle = column ? NOTION_COLORS[column.color] : NOTION_COLORS.gray;
-  const priority = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.none;
-  const overdue = isOverdue(task.dueDate, task.status);
+  const priority = PRIORITY_CONFIG[draftTask.priority] || PRIORITY_CONFIG.none;
+  const overdue = isOverdue(draftTask.dueDate, draftTask.status);
 
-  // Helper to add activity log
-  const logActivity = (
-    action: TaskActivityLog['action'],
-    details: string,
-    additionalUpdates: Partial<Task> = {}
-  ) => {
+  // Update local draft task helper
+  const updateDraft = (updates: Partial<Task>) => {
+    setDraftTask((prev) => ({ ...prev, ...updates }));
+    setIsDirty(true);
+    setIsSavedRecently(false);
+  };
+
+  // Explicit Save to Database & Parent State
+  const handleSaveToDatabase = () => {
+    const finalDescription = draftTask.description || '';
+    const finalBlocks = finalDescription 
+      ? [{ id: 'b-main', type: 'paragraph' as const, content: finalDescription }] 
+      : [];
+
+    const payload: Task = {
+      ...draftTask,
+      title: draftTask.title.trim() || 'Công việc không tên',
+      description: finalDescription,
+      blocks: finalBlocks,
+      updatedAt: getTodayString(),
+    };
+
+    onUpdateTask(task.id, payload);
+    setIsDirty(false);
+    setIsSavedRecently(true);
+
+    setTimeout(() => {
+      setIsSavedRecently(false);
+    }, 2500);
+  };
+
+  // Helper to append activity log into draft
+  const logActivityInDraft = (action: TaskActivityLog['action'], details: string, extraUpdates: Partial<Task> = {}) => {
     const newLog: TaskActivityLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       taskId: task.id,
@@ -156,26 +207,25 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       timestamp: new Date().toISOString(),
     };
 
-    const currentLogs = task.activityLogs || [];
+    const currentLogs = draftTask.activityLogs || [];
     const updatedLogs = [newLog, ...currentLogs];
 
-    onUpdateTask(task.id, {
-      ...additionalUpdates,
+    updateDraft({
+      ...extraUpdates,
       activityLogs: updatedLogs,
-      updatedAt: getTodayString(),
     });
   };
 
   // Subtask handlers
   const handleToggleSubtask = (subId: string) => {
-    const updated = (task.subtasks || []).map((s) => 
+    const updated = (draftTask.subtasks || []).map((s) => 
       s.id === subId ? { ...s, completed: !s.completed } : s
     );
     const allDone = updated.length > 0 && updated.every((s) => s.completed);
-    const targetSub = (task.subtasks || []).find((s) => s.id === subId);
+    const targetSub = (draftTask.subtasks || []).find((s) => s.id === subId);
+    const newStatus = allDone ? 'done' : draftTask.status === 'done' ? 'in_progress' : draftTask.status;
 
-    const newStatus = allDone ? 'done' : task.status === 'done' ? 'in_progress' : task.status;
-    logActivity(
+    logActivityInDraft(
       'general',
       `Đã ${targetSub?.completed ? 'bỏ hoàn thành' : 'hoàn thành'} việc con "${targetSub?.text}"`,
       { subtasks: updated, status: newStatus }
@@ -191,119 +241,80 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       text: newSubtaskText.trim(),
       completed: false,
     };
-    const updated = [...(task.subtasks || []), newSub];
-    logActivity('general', `Đã thêm việc con "${newSub.text}"`, { subtasks: updated });
+    const updated = [...(draftTask.subtasks || []), newSub];
+    logActivityInDraft('general', `Đã thêm việc con "${newSub.text}"`, { subtasks: updated });
     setNewSubtaskText('');
   };
 
   const handleDeleteSubtask = (subId: string) => {
-    const targetSub = (task.subtasks || []).find((s) => s.id === subId);
-    const updated = (task.subtasks || []).filter((s) => s.id !== subId);
-    logActivity('general', `Đã xóa việc con "${targetSub?.text}"`, { subtasks: updated });
+    const targetSub = (draftTask.subtasks || []).find((s) => s.id === subId);
+    const updated = (draftTask.subtasks || []).filter((s) => s.id !== subId);
+    logActivityInDraft('general', `Đã xóa việc con "${targetSub?.text}"`, { subtasks: updated });
   };
 
   // Tag toggle
   const handleToggleTag = (tag: Tag) => {
-    const currentTags = task.tags || [];
+    const currentTags = draftTask.tags || [];
     const exists = currentTags.some((t) => t.id === tag.id);
     const updatedTags = exists 
       ? currentTags.filter((t) => t.id !== tag.id)
       : [...currentTags, tag];
 
-    logActivity(
+    logActivityInDraft(
       'tag_change',
       `Đã ${exists ? 'gỡ' : 'thêm'} thẻ nhãn "${tag.label}"`,
       { tags: updatedTags }
     );
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'property_change',
-      title: 'Cập nhật thẻ nhãn',
-      message: `${actorUser.name} đã ${exists ? 'gỡ' : 'thêm'} thẻ "${tag.label}"`,
-    });
   };
 
-  // Set / Change Task Reviewer (Người duyệt)
+  // Set Reviewer (Người duyệt)
   const handleSetCreator = (user: User) => {
-    const updatedTask: Task = { ...task, creator: user };
-    logActivity('general', `Đã chọn người duyệt công việc là ${user.name}`, { creator: user });
-    dispatchTaskEvent({
-      project,
-      task: updatedTask,
-      actor: actorUser,
-      type: 'assigned',
-      title: 'Được gắn làm Người duyệt',
-      message: `${actorUser.name} đã gắn bạn làm người duyệt cho công việc "${task.title}"`,
-    });
+    logActivityInDraft('general', `Đã chọn người duyệt công việc là ${user.name}`, { creator: user });
     setShowCreatorMenu(false);
   };
 
-  // Assignee toggle
-  const handleToggleAssignee = (user: User) => {
-    const currentAssignees = task.assignees || [];
-    const exists = currentAssignees.some((u) => u.id === user.id || (user.email && u.email?.toLowerCase() === user.email?.toLowerCase()));
-    const updated = exists 
-      ? currentAssignees.filter((u) => u.id !== user.id && (!user.email || u.email?.toLowerCase() !== user.email?.toLowerCase()))
-      : [...currentAssignees, user];
-
-    const updatedTask: Task = { ...task, assignees: updated };
-
-    logActivity(
-      'assignee_change',
-      `Đã ${exists ? 'bỏ phân công' : 'phân công công việc cho'} ${user.name}`,
-      { assignees: updated }
+  // Assignee single select (Người phụ trách - Chỉ 1 người)
+  const handleSetAssignee = (user: User) => {
+    const currentAssignees = draftTask.assignees || [];
+    const isSame = currentAssignees.length === 1 && (
+      currentAssignees[0].id === user.id ||
+      (user.email && currentAssignees[0].email?.toLowerCase() === user.email?.toLowerCase())
     );
 
-    if (!exists) {
-      dispatchTaskEvent({
-        project,
-        task: updatedTask,
-        actor: actorUser,
-        type: 'assigned',
-        title: 'Được giao việc mới',
-        message: `${actorUser.name} đã giao việc "${task.title}" cho bạn`,
-      });
+    if (isSame) {
+      logActivityInDraft('assignee_change', `Đã bỏ phân công ${user.name}`, { assignees: [] });
     } else {
-      dispatchTaskEvent({
-        project,
-        task: updatedTask,
-        actor: actorUser,
-        type: 'assigned',
-        title: 'Bỏ phân công việc',
-        message: `${actorUser.name} đã bỏ phân công việc "${task.title}"`,
-      });
+      logActivityInDraft('assignee_change', `Đã phân công công việc cho ${user.name}`, { assignees: [user] });
+    }
+    setShowAssigneeMenu(false);
+  };
+
+  const handleRemoveAssignee = () => {
+    const current = draftTask.assignees?.[0];
+    if (current) {
+      logActivityInDraft('assignee_change', `Đã bỏ phân công ${current.name}`, { assignees: [] });
+    } else {
+      updateDraft({ assignees: [] });
     }
   };
 
   // Follower toggle
   const handleToggleFollower = (user: User) => {
-    const currentFollowers = task.followers || [];
+    const currentFollowers = draftTask.followers || [];
     const exists = currentFollowers.some((u) => u.id === user.id || (user.email && u.email?.toLowerCase() === user.email?.toLowerCase()));
     const updated = exists 
       ? currentFollowers.filter((u) => u.id !== user.id && (!user.email || u.email?.toLowerCase() !== user.email?.toLowerCase()))
       : [...currentFollowers, user];
 
-    logActivity(
+    logActivityInDraft(
       'general',
       `Đã ${exists ? 'ngừng theo dõi' : 'bắt đầu theo dõi'} công việc`,
       { followers: updated }
     );
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'property_change',
-      title: 'Người theo dõi',
-      message: `${actorUser.name} đã ${exists ? 'ngừng theo dõi' : 'bắt đầu theo dõi'} công việc này`,
-    });
   };
 
   const isCurrentUserFollowing = currentUser 
-    ? (task.followers || []).some((u) => u.id === currentUser.id || (currentUser.email && u.email === currentUser.email))
+    ? (draftTask.followers || []).some((u) => u.id === currentUser.id || (currentUser.email && u.email === currentUser.email))
     : false;
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -320,112 +331,58 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       createdAt: new Date().toISOString(),
     };
 
-    const updatedComments = [...(task.comments || []), newComment];
-    logActivity('general', `Đã thêm bình luận: "${text.substring(0, 40)}${text.length > 40 ? '...' : ''}"`, {
+    const updatedComments = [...(draftTask.comments || []), newComment];
+    logActivityInDraft('general', `Đã thêm bình luận: "${text.substring(0, 40)}${text.length > 40 ? '...' : ''}"`, {
       comments: updatedComments,
-    });
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'comment',
-      title: 'Bình luận mới',
-      message: `${actorUser.name} đã bình luận: "${text}"`,
     });
 
     setCommentInput('');
   };
 
   const handleStatusChange = (newStatus: string) => {
-    const oldCol = project.columns.find((c) => c.id === task.status);
+    const oldCol = project.columns.find((c) => c.id === draftTask.status);
     const newCol = project.columns.find((c) => c.id === newStatus);
 
-    logActivity(
+    logActivityInDraft(
       'status_change',
-      `Đã đổi trạng thái từ "${oldCol?.title || task.status}" sang "${newCol?.title || newStatus}"`,
+      `Đã đổi trạng thái từ "${oldCol?.title || draftTask.status}" sang "${newCol?.title || newStatus}"`,
       { status: newStatus }
     );
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'status_change',
-      title: 'Cập nhật trạng thái',
-      message: `${actorUser.name} đã chuyển trạng thái sang "${newCol?.title || newStatus}"`,
-    });
   };
 
   const handlePriorityChange = (newPriority: PriorityLevel) => {
-    const oldLabel = PRIORITY_CONFIG[task.priority]?.label || task.priority;
+    const oldLabel = PRIORITY_CONFIG[draftTask.priority]?.label || draftTask.priority;
     const newLabel = PRIORITY_CONFIG[newPriority]?.label || newPriority;
 
-    logActivity(
+    logActivityInDraft(
       'priority_change',
       `Đã đổi mức ưu tiên từ "${oldLabel}" sang "${newLabel}"`,
       { priority: newPriority }
     );
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'property_change',
-      title: 'Cập nhật mức ưu tiên',
-      message: `${actorUser.name} đã đổi mức ưu tiên thành "${newLabel}"`,
-    });
   };
 
   const handleDueDateChange = (newDueDate: string) => {
-    logActivity(
+    logActivityInDraft(
       'date_change',
       `Đã thay đổi hạn chót thành ${newDueDate || 'Chưa đặt'}`,
       { dueDate: newDueDate }
     );
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'property_change',
-      title: 'Cập nhật hạn chót (Deadline)',
-      message: `${actorUser.name} đã thay đổi hạn chót thành ${newDueDate || 'Chưa đặt'}`,
-    });
   };
 
   const handleStartDateChange = (newStartDate: string) => {
-    logActivity(
+    logActivityInDraft(
       'date_change',
       `Đã thay đổi ngày bắt đầu thành ${newStartDate || 'Chưa đặt'}`,
       { startDate: newStartDate }
     );
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'property_change',
-      title: 'Cập nhật ngày bắt đầu',
-      message: `${actorUser.name} đã thay đổi ngày bắt đầu thành ${newStartDate || 'Chưa đặt'}`,
-    });
   };
 
   const handleDueTimeChange = (newDueTime: string) => {
-    logActivity(
+    logActivityInDraft(
       'time_change',
       `Đã đặt giờ hết hạn là ${newDueTime}`,
       { dueTime: newDueTime }
     );
-
-    dispatchTaskEvent({
-      project,
-      task,
-      actor: actorUser,
-      type: 'property_change',
-      title: 'Cập nhật giờ hết hạn',
-      message: `${actorUser.name} đã đặt giờ hết hạn là ${newDueTime}`,
-    });
   };
 
   // File Upload handling (< 5MB constraint)
@@ -436,7 +393,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setFileError(null);
     const file = files[0];
 
-    // Max 5MB check (5 * 1024 * 1024 bytes)
     const MAX_SIZE = 5 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
       setFileError('Dung lượng tệp vượt quá giới hạn cho phép (tối đa 5MB). Vui lòng chọn tệp nhỏ hơn.');
@@ -454,55 +410,45 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         type: file.type || 'application/octet-stream',
         url: base64Url,
         uploadedAt: new Date().toISOString(),
-        uploadedBy: actorUser.name,
       };
 
-      const updatedAttachments = [...(task.attachments || []), newAttachment];
-      logActivity(
-        'attachment_add',
-        `Đã tải lên tệp đính kèm: "${file.name}" (${formatFileSize(file.size)})`,
-        { attachments: updatedAttachments }
-      );
-
-      dispatchTaskEvent({
-        project,
-        task,
-        actor: actorUser,
-        type: 'property_change',
-        title: 'Tệp đính kèm mới',
-        message: `${actorUser.name} đã đính kèm tệp "${file.name}"`,
+      const updated = [...(draftTask.attachments || []), newAttachment];
+      logActivityInDraft('general', `Đã đính kèm tệp "${file.name}" (${formatFileSize(file.size)})`, {
+        attachments: updated,
       });
 
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
-
     reader.readAsDataURL(file);
   };
 
   const handleDeleteAttachment = (attId: string) => {
-    const targetAtt = (task.attachments || []).find((a) => a.id === attId);
-    const updated = (task.attachments || []).filter((a) => a.id !== attId);
-    logActivity(
-      'attachment_remove',
-      `Đã xóa tệp đính kèm: "${targetAtt?.name}"`,
-      { attachments: updated }
-    );
+    const targetAtt = (draftTask.attachments || []).find((a) => a.id === attId);
+    const updated = (draftTask.attachments || []).filter((a) => a.id !== attId);
+    logActivityInDraft('general', `Đã gỡ tệp đính kèm "${targetAtt?.name}"`, {
+      attachments: updated,
+    });
   };
 
-  // Archive / Unarchive
+  // Archive toggle
   const handleToggleArchive = () => {
-    const nextArchived = !task.isArchived;
-    logActivity(
-      nextArchived ? 'archive' : 'unarchive',
-      nextArchived ? 'Đã lưu trữ công việc (Archive)' : 'Đã bỏ lưu trữ công việc (Unarchive)',
-      { isArchived: nextArchived }
-    );
+    const nextArchived = !draftTask.isArchived;
+    updateDraft({ isArchived: nextArchived });
+    setShowMoreMenu(false);
 
     if (nextArchived && onArchiveTask) {
       onArchiveTask(task.id);
     } else if (!nextArchived && onUnarchiveTask) {
       onUnarchiveTask(task.id);
     }
+  };
+
+  // Copy task link/id
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/#task-${task.id}`);
+    setCopyToast(true);
+    setShowMoreMenu(false);
+    setTimeout(() => setCopyToast(false), 2000);
   };
 
   const getFileIcon = (fileType: string) => {
@@ -529,36 +475,110 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             isFullWidth ? 'w-full max-w-5xl mx-auto rounded-none' : 'w-full max-w-2xl'
           } ${darkMode ? 'bg-[#1e1e1e] border-[#313131] text-[#dedede]' : 'bg-white border-[#e3e2e0] text-[#37352f]'}`}
         >
-          {/* Top Sticky Bar */}
+          {/* Top Action Bar */}
           <div className={`p-3 border-b flex items-center justify-between shrink-0 ${
             darkMode ? 'border-[#2f2f2f] bg-[#1a1a1a]' : 'border-[#ededeb] bg-[#fbfbfa]'
           }`}>
-            <div className="flex items-center gap-1.5 text-xs text-[#9b9a97] truncate max-w-[50%]">
+            <div className="flex items-center gap-1.5 text-xs text-[#9b9a97] truncate max-w-[40%]">
               <span className="truncate">{project.title}</span>
               <span>/</span>
               <span className="font-semibold text-[#5a5a58] dark:text-[#ccc]">Chi tiết công việc</span>
-              {task.isArchived && (
+              {draftTask.isArchived && (
                 <span className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1">
                   <Archive size={10} /> Đã lưu trữ
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1">
-              {/* Archive Button */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* PRIMARY "LƯU" (SAVE) BUTTON */}
               <button
-                onClick={handleToggleArchive}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                  task.isArchived
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
-                    : (darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]')
+                id="btn-save-task-detail"
+                onClick={handleSaveToDatabase}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all ${
+                  isSavedRecently
+                    ? 'bg-emerald-600 text-white'
+                    : isDirty
+                    ? 'bg-[#2383e2] hover:bg-[#1d6ec0] text-white ring-2 ring-blue-400/30'
+                    : 'bg-emerald-600/90 hover:bg-emerald-600 text-white'
                 }`}
-                title={task.isArchived ? 'Bỏ lưu trữ (đưa về bảng làm việc)' : 'Lưu trữ công việc (ẩn khỏi bảng)'}
+                title="Xác nhận lưu thay đổi vào cơ sở dữ liệu"
               >
-                <Archive size={14} />
-                <span>{task.isArchived ? 'Bỏ lưu trữ' : 'Lưu trữ'}</span>
+                {isSavedRecently ? (
+                  <>
+                    <Check size={14} strokeWidth={2.5} />
+                    <span>Đã lưu vào DB</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={14} strokeWidth={2} />
+                    <span>Lưu</span>
+                    {isDirty && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
+                    )}
+                  </>
+                )}
               </button>
 
+              {/* 3-DOTS MORE ACTIONS MENU (Consolidates Archive, Delete, Copy Link, etc.) */}
+              <div className="relative" ref={moreMenuRef}>
+                <button
+                  id="btn-task-more-menu"
+                  onClick={() => setShowMoreMenu(!showMoreMenu)}
+                  className={`p-1.5 rounded-lg border transition-colors ${
+                    showMoreMenu
+                      ? (darkMode ? 'bg-[#333] border-[#444] text-white' : 'bg-[#e8e7e4] border-[#ccc] text-black')
+                      : (darkMode ? 'border-[#333] text-[#aaa] hover:text-white hover:bg-[#2c2c2c]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#efedea]')
+                  }`}
+                  title="Chức năng chi tiết khác"
+                >
+                  <MoreVertical size={16} />
+                </button>
+
+                {showMoreMenu && (
+                  <div className={`absolute right-0 top-full mt-1.5 w-52 rounded-xl shadow-xl border p-1 z-50 text-xs ${
+                    darkMode ? 'bg-[#242424] border-[#383838] text-[#ddd]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+                  }`}>
+                    {/* Toggle Archive */}
+                    <button
+                      onClick={handleToggleArchive}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+                        darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]'
+                      }`}
+                    >
+                      <Archive size={14} className={draftTask.isArchived ? 'text-amber-500' : 'text-[#888]'} />
+                      <span>{draftTask.isArchived ? 'Bỏ lưu trữ (hiện lại trên bảng)' : 'Lưu trữ công việc'}</span>
+                    </button>
+
+                    {/* Copy Link */}
+                    <button
+                      onClick={handleCopyLink}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+                        darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]'
+                      }`}
+                    >
+                      <Copy size={14} className="text-[#888]" />
+                      <span>Sao chép liên kết</span>
+                    </button>
+
+                    <div className={`my-1 border-t ${darkMode ? 'border-[#333]' : 'border-[#eee]'}`} />
+
+                    {/* Delete Action */}
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                      <span>Xóa công việc (Thùng rác)</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Fullscreen Expand / Collapse */}
               <button
                 onClick={() => setIsFullWidth(!isFullWidth)}
                 className={`p-1.5 rounded-md transition-colors ${
@@ -569,45 +589,37 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 {isFullWidth ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               </button>
 
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                title="Xóa công việc"
-              >
-                <Trash2 size={15} />
-              </button>
+              <div className={`w-[1px] h-4 mx-0.5 ${darkMode ? 'bg-[#333]' : 'bg-[#e3e2e0]'}`} />
 
-              <div className={`w-[1px] h-4 mx-1 ${darkMode ? 'bg-[#333]' : 'bg-[#e3e2e0]'}`} />
-
+              {/* Close Button */}
               <button
                 onClick={onClose}
                 className={`p-1.5 rounded-md transition-colors ${
                   darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]'
                 }`}
+                title="Đóng cửa sổ"
               >
                 <X size={16} />
               </button>
             </div>
           </div>
 
-          {/* Modal Scroll Content */}
+          {/* Copy link toast indicator */}
+          {copyToast && (
+            <div className="bg-[#2383e2] text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-center gap-1.5 animate-in fade-in">
+              <CheckCircle2 size={14} />
+              <span>Đã sao chép liên kết công việc vào clipboard!</span>
+            </div>
+          )}
+
+          {/* Modal Scrollable Body */}
           <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 no-scrollbar">
             {/* Task Title */}
             <div>
               <input
                 type="text"
-                value={localTitle}
-                onChange={(e) => {
-                  const title = e.target.value;
-                  setLocalTitle(title);
-                  onUpdateTask(task.id, { title });
-                }}
-                onBlur={() => {
-                  if (localTitle.trim() && localTitle !== task.title) {
-                    onUpdateTask(task.id, { title: localTitle.trim() });
-                    logActivity('general', `Đã đổi tên công việc thành "${localTitle.trim()}"`);
-                  }
-                }}
+                value={draftTask.title}
+                onChange={(e) => updateDraft({ title: e.target.value })}
                 placeholder="Tên công việc..."
                 className={`text-xl sm:text-2xl font-bold w-full bg-transparent outline-none placeholder-[#9b9a97] ${
                   darkMode ? 'text-white' : 'text-[#37352f]'
@@ -615,7 +627,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               />
             </div>
 
-            {/* Properties Table (Notion Property Rows) */}
+            {/* Properties Table */}
             <div className="space-y-3 text-xs border-y py-4 border-[#f1f1ef] dark:border-[#2b2b2b]">
               {/* Status Property */}
               <div className="grid grid-cols-3 items-center gap-2">
@@ -625,7 +637,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
                 <div className="col-span-2">
                   <select
-                    value={task.status}
+                    value={draftTask.status}
                     onChange={(e) => handleStatusChange(e.target.value)}
                     className={`text-xs px-2.5 py-1 rounded-md font-semibold outline-none cursor-pointer ${colStyle.badgeBg}`}
                   >
@@ -646,7 +658,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
                 <div className="col-span-2">
                   <select
-                    value={task.priority}
+                    value={draftTask.priority}
                     onChange={(e) => handlePriorityChange(e.target.value as PriorityLevel)}
                     className={`text-xs px-2.5 py-1 rounded-md font-medium outline-none cursor-pointer ${priority.badgeBg} ${priority.badgeText}`}
                   >
@@ -672,7 +684,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <span className="text-[10px] text-[#9b9a97]">Từ:</span>
                       <input
                         type="date"
-                        value={task.startDate || ''}
+                        value={draftTask.startDate || ''}
                         onChange={(e) => handleStartDateChange(e.target.value)}
                         className={`text-xs px-2 py-1 rounded-md border outline-none ${
                           darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
@@ -684,7 +696,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <span className="text-[10px] text-[#9b9a97]">Đến:</span>
                       <input
                         type="date"
-                        value={task.dueDate || ''}
+                        value={draftTask.dueDate || ''}
                         onChange={(e) => handleDueDateChange(e.target.value)}
                         className={`text-xs px-2 py-1 rounded-md border outline-none ${
                           overdue
@@ -695,14 +707,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Time pickers (with default preset 18:00) */}
+                  {/* Time pickers */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1">
                       <Clock size={12} className="text-[#9b9a97]" />
                       <span className="text-[10px] text-[#9b9a97]">Giờ hết hạn:</span>
                       <input
                         type="time"
-                        value={task.dueTime || '18:00'}
+                        value={draftTask.dueTime || '18:00'}
                         onChange={(e) => handleDueTimeChange(e.target.value)}
                         className={`text-xs px-2 py-1 rounded-md border outline-none ${
                           darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
@@ -722,7 +734,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           type="button"
                           onClick={() => handleDueTimeChange(preset.val)}
                           className={`px-1.5 py-0.5 rounded text-[10px] border transition-colors ${
-                            task.dueTime === preset.val
+                            draftTask.dueTime === preset.val
                               ? 'bg-blue-50 border-blue-300 text-[#2383e2] dark:bg-blue-950 dark:border-blue-700'
                               : (darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white' : 'border-[#e3e2e0] text-[#787774] hover:text-black')
                           }`}
@@ -743,7 +755,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
                 <div className="col-span-2 relative">
                   <div className="flex items-center gap-2">
-                    {task.creator ? (
+                    {draftTask.creator ? (
                       <div
                         onClick={() => setShowCreatorMenu(!showCreatorMenu)}
                         className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-colors ${
@@ -752,14 +764,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         title="Bấm để đổi người duyệt"
                       >
                         <img
-                          src={task.creator.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(task.creator.name)}&backgroundColor=2383e2`}
-                          alt={task.creator.name}
+                          src={draftTask.creator.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(draftTask.creator.name)}&backgroundColor=2383e2`}
+                          alt={draftTask.creator.name}
                           referrerPolicy="no-referrer"
                           className="w-4 h-4 rounded-full object-cover shrink-0"
                         />
-                        <span className="font-semibold">{task.creator.name}</span>
-                        {task.creator.email && (
-                          <span className="text-[10px] text-[#9b9a97] hidden sm:inline">({task.creator.email})</span>
+                        <span className="font-semibold">{draftTask.creator.name}</span>
+                        {draftTask.creator.email && (
+                          <span className="text-[10px] text-[#9b9a97] hidden sm:inline">({draftTask.creator.email})</span>
                         )}
                       </div>
                     ) : (
@@ -778,7 +790,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   {showCreatorMenu && (
                     <UserAutofillDropdown
                       availableUsers={availableUsers}
-                      selectedUsers={task.creator ? [task.creator] : []}
+                      selectedUsers={draftTask.creator ? [draftTask.creator] : []}
                       onToggleUser={(u) => handleSetCreator(u)}
                       onClose={() => setShowCreatorMenu(false)}
                       title="Chọn người duyệt công việc"
@@ -791,7 +803,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Assignees Property */}
+              {/* Assignees Property (Single select) */}
               <div className="grid grid-cols-3 items-center gap-2">
                 <div className="flex items-center gap-2 text-[#9b9a97]">
                   <UserIcon size={14} />
@@ -799,46 +811,62 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
                 <div className="col-span-2 relative">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {(task.assignees || []).map((u) => (
-                      <span
-                        key={u.id || u.email}
-                        onClick={() => handleToggleAssignee(u)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium cursor-pointer hover:opacity-80 transition-opacity ${
-                          darkMode ? 'bg-[#2a2a2a] border-[#3a3a3a]' : 'bg-[#f1f1ef] border-[#e3e2e0]'
+                    {draftTask.assignees && draftTask.assignees.length > 0 ? (
+                      <div
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-medium cursor-pointer transition-colors ${
+                          darkMode ? 'bg-[#262626] border-[#383838] hover:bg-[#303030]' : 'bg-[#f7f6f3] border-[#e3e2e0] hover:bg-[#efede9]'
                         }`}
-                        title="Bấm để bỏ người phụ trách này"
                       >
-                        <img
-                          src={u.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(u.name)}&backgroundColor=2383e2`}
-                          alt={u.name}
-                          referrerPolicy="no-referrer"
-                          className="w-3.5 h-3.5 rounded-full object-cover"
-                        />
-                        <span>{u.name}</span>
-                        <X size={10} className="text-[#9b9a97]" />
-                      </span>
-                    ))}
-
-                    <button
-                      onClick={() => setShowAssigneeMenu(!showAssigneeMenu)}
-                      className={`p-1 px-2 rounded-xl border text-[11px] font-medium flex items-center gap-1 transition-colors ${
-                        darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white hover:bg-[#2a2a2a]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#f5f5f5]'
-                      }`}
-                    >
-                      <Plus size={12} />
-                      <span>Thêm người</span>
-                    </button>
+                        <div 
+                          onClick={() => setShowAssigneeMenu(!showAssigneeMenu)}
+                          className="flex items-center gap-1.5"
+                          title="Bấm để đổi người phụ trách"
+                        >
+                          <img
+                            src={draftTask.assignees[0].avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(draftTask.assignees[0].name)}&backgroundColor=2383e2`}
+                            alt={draftTask.assignees[0].name}
+                            referrerPolicy="no-referrer"
+                            className="w-4 h-4 rounded-full object-cover shrink-0"
+                          />
+                          <span className="font-semibold">{draftTask.assignees[0].name}</span>
+                          {draftTask.assignees[0].email && (
+                            <span className="text-[10px] text-[#9b9a97] hidden sm:inline">({draftTask.assignees[0].email})</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveAssignee();
+                          }}
+                          className="p-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#9b9a97] hover:text-red-500 transition-colors ml-0.5"
+                          title="Bỏ người phụ trách"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowAssigneeMenu(!showAssigneeMenu)}
+                        className={`px-2.5 py-1 rounded-xl border text-xs flex items-center gap-1.5 font-medium transition-colors ${
+                          darkMode ? 'border-[#3a3a3a] text-[#888] hover:text-white hover:bg-[#2a2a2a]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#f5f5f5]'
+                        }`}
+                      >
+                        <Plus size={12} />
+                        <span>Chọn người phụ trách</span>
+                      </button>
+                    )}
                   </div>
 
                   {showAssigneeMenu && (
                     <UserAutofillDropdown
                       availableUsers={availableUsers}
-                      selectedUsers={task.assignees || []}
-                      onToggleUser={(u) => handleToggleAssignee(u)}
+                      selectedUsers={draftTask.assignees || []}
+                      onToggleUser={(u) => handleSetAssignee(u)}
                       onClose={() => setShowAssigneeMenu(false)}
-                      title="Chọn người phụ trách"
+                      title="Chọn người phụ trách (1 người)"
                       placeholder="Gõ tên hoặc email thành viên..."
-                      isSingleSelect={false}
+                      isSingleSelect={true}
                       currentUser={currentUser}
                       darkMode={darkMode}
                     />
@@ -869,7 +897,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       </button>
                     )}
 
-                    {(task.followers || []).map((u) => (
+                    {(draftTask.followers || []).map((u) => (
                       <span
                         key={u.id || u.email}
                         onClick={() => handleToggleFollower(u)}
@@ -903,7 +931,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   {showFollowerMenu && (
                     <UserAutofillDropdown
                       availableUsers={availableUsers}
-                      selectedUsers={task.followers || []}
+                      selectedUsers={draftTask.followers || []}
                       onToggleUser={(u) => handleToggleFollower(u)}
                       onClose={() => setShowFollowerMenu(false)}
                       title="Chọn người theo dõi"
@@ -924,7 +952,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
                 <div className="col-span-2 relative">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {(task.tags || []).map((t) => (
+                    {(draftTask.tags || []).map((t) => (
                       <span
                         key={t.id}
                         onClick={() => handleToggleTag(t)}
@@ -953,7 +981,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
                     }`}>
                       {SAMPLE_TAGS.map((tag) => {
-                        const isSelected = (task.tags || []).some((t) => t.id === tag.id);
+                        const isSelected = (draftTask.tags || []).some((t) => t.id === tag.id);
                         return (
                           <button
                             key={tag.id}
@@ -983,12 +1011,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <span>Danh sách việc con (Subtasks)</span>
                 </h3>
                 <span className="text-xs font-mono text-[#9b9a97]">
-                  {(task.subtasks || []).filter((s) => s.completed).length}/{(task.subtasks || []).length} hoàn thành
+                  {(draftTask.subtasks || []).filter((s) => s.completed).length}/{(draftTask.subtasks || []).length} hoàn thành
                 </span>
               </div>
 
               <div className="space-y-1.5">
-                {(task.subtasks || []).map((st) => (
+                {(draftTask.subtasks || []).map((st) => (
                   <div
                     key={st.id}
                     className={`flex items-center justify-between p-2 rounded-lg border group transition-colors ${
@@ -1052,7 +1080,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Notes / Description Section - Improved readability & scrolling */}
+            {/* Notes / Description Section - FULL DISPLAY (No fixed 5-line scrolling box) */}
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#9b9a97] flex items-center gap-1.5">
@@ -1060,29 +1088,22 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <span>Nội dung ghi chú</span>
                 </h3>
                 <span className="text-[11px] text-[#9b9a97]">
-                  {localDescription.length} ký tự
+                  {(draftTask.description || '').length} ký tự
                 </span>
               </div>
 
-              <div className={`rounded-xl border transition-all overflow-hidden focus-within:ring-2 focus-within:ring-[#2383e2] ${
+              <div className={`rounded-xl border transition-all focus-within:ring-2 focus-within:ring-[#2383e2] ${
                 darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fdfdfc] border-[#e8e7e4]'
               }`}>
                 <textarea
-                  value={localDescription}
+                  ref={descTextareaRef}
+                  value={draftTask.description || ''}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    setLocalDescription(val);
-                    onUpdateTask(task.id, {
-                      description: val,
-                      blocks: val ? [{ id: 'b-main', type: 'paragraph', content: val }] : [],
-                    });
+                    updateDraft({ description: e.target.value });
+                    adjustDescHeight();
                   }}
-                  onBlur={() => {
-                    logActivity('general', 'Đã cập nhật nội dung ghi chú');
-                  }}
-                  placeholder="Nhập nội dung ghi chú, tóm tắt hoặc yêu cầu chi tiết cho công việc này..."
-                  rows={5}
-                  className={`w-full text-xs p-3.5 bg-transparent outline-none resize-y leading-relaxed font-sans max-h-80 overflow-y-auto ${
+                  placeholder="Nhập nội dung ghi chú, tóm tắt hoặc yêu cầu chi tiết cho công việc này... (Hiển thị đầy đủ mọi dòng)"
+                  className={`w-full text-xs p-3.5 bg-transparent outline-none resize-none leading-relaxed font-sans min-h-[130px] ${
                     darkMode ? 'text-[#dedede] placeholder-[#666]' : 'text-[#37352f] placeholder-[#9b9a97]'
                   }`}
                 />
@@ -1102,7 +1123,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     }`}
                   >
                     <MessageSquare size={13} />
-                    <span>Trao đổi ({(task.comments || []).length})</span>
+                    <span>Trao đổi ({(draftTask.comments || []).length})</span>
                   </button>
 
                   <button
@@ -1114,7 +1135,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     }`}
                   >
                     <Paperclip size={13} />
-                    <span>Tệp đính kèm ({(task.attachments || []).length})</span>
+                    <span>Tệp đính kèm ({(draftTask.attachments || []).length})</span>
                   </button>
 
                   <button
@@ -1126,7 +1147,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     }`}
                   >
                     <History size={13} />
-                    <span>Lịch sử ({task.activityLogs ? task.activityLogs.length : 1})</span>
+                    <span>Lịch sử ({draftTask.activityLogs ? draftTask.activityLogs.length : 1})</span>
                   </button>
                 </div>
 
@@ -1152,14 +1173,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               {/* Tab 1: Comments */}
               {activeTab === 'comments' && (
                 <div className="space-y-3">
-                  {(task.comments || []).length === 0 ? (
+                  {(draftTask.comments || []).length === 0 ? (
                     <div className={`p-5 rounded-xl border text-center text-xs ${
                       darkMode ? 'bg-[#242424]/50 border-[#2f2f2f] text-[#777]' : 'bg-[#fafafa] border-[#e8e7e4] text-[#9b9a97]'
                     }`}>
                       Chưa có trao đổi nào. Hãy để lại bình luận để thảo luận tiến độ công việc.
                     </div>
                   ) : (
-                    (task.comments || []).map((c) => (
+                    (draftTask.comments || []).map((c) => (
                       <div
                         key={c.id}
                         className={`p-3 rounded-xl border text-xs space-y-1.5 ${
@@ -1235,7 +1256,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                   )}
 
-                  {(task.attachments || []).length === 0 ? (
+                  {(draftTask.attachments || []).length === 0 ? (
                     <div 
                       onClick={() => fileInputRef.current?.click()}
                       className={`p-6 rounded-xl border border-dashed text-center text-xs cursor-pointer transition-colors ${
@@ -1248,7 +1269,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {(task.attachments || []).map((att) => (
+                      {(draftTask.attachments || []).map((att) => (
                         <div
                           key={att.id}
                           className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 transition-all ${
@@ -1304,7 +1325,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         <span>Khởi tạo công việc</span>
                       </div>
                       <span className="text-[10px] text-[#9b9a97] font-mono">
-                        {formatFullTimestamp(task.createdAt)}
+                        {formatFullTimestamp(draftTask.createdAt)}
                       </span>
                     </div>
                     <p className="text-[#787774] dark:text-[#aaa] pl-3.5">
@@ -1313,7 +1334,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </div>
 
                   {/* List of activity logs */}
-                  {(task.activityLogs || []).map((log) => (
+                  {(draftTask.activityLogs || []).map((log) => (
                     <div
                       key={log.id}
                       className={`p-3 rounded-xl border text-xs space-y-1 ${

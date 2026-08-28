@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { ProjectPage, TaskNotification, User } from '../types';
-import { NotificationCenter } from './NotificationCenter';
+import { ProjectPage, User } from '../types';
 import { 
   Star, 
   Plus, 
@@ -10,11 +9,6 @@ import {
 interface PageHeaderProps {
   project: ProjectPage;
   currentUser: User | null;
-  notifications: TaskNotification[];
-  onOpenTask: (projectId: string, taskId: string) => void;
-  onMarkAsRead: (notificationId: string) => void;
-  onMarkAllAsRead: () => void;
-  onClearNotification: (notificationId: string) => void;
   onUpdateProject: (updates: Partial<ProjectPage>) => void;
   onOpenEmojiPicker: () => void;
   onAddNewTask: () => void;
@@ -24,11 +18,6 @@ interface PageHeaderProps {
 export const PageHeader: React.FC<PageHeaderProps> = ({
   project,
   currentUser,
-  notifications,
-  onOpenTask,
-  onMarkAsRead,
-  onMarkAllAsRead,
-  onClearNotification,
   onUpdateProject,
   onOpenEmojiPicker,
   onAddNewTask,
@@ -69,17 +58,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
           {/* Action bar */}
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {/* Notification Center Bell */}
-            <NotificationCenter
-              notifications={notifications}
-              currentUser={currentUser}
-              onOpenTask={onOpenTask}
-              onMarkAsRead={onMarkAsRead}
-              onMarkAllAsRead={onMarkAllAsRead}
-              onClearNotification={onClearNotification}
-              darkMode={darkMode}
-            />
-
             <button
               onClick={() => onUpdateProject({ isFavorite: !project.isFavorite })}
               className={`p-2 rounded-lg border text-xs transition-colors flex items-center gap-1.5 ${

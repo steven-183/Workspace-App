@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 import { ProjectPage, Task } from '../types';
 import { NOTION_COLORS } from '../utils/notionStyles';
-import { addDays, formatDateVi, getTodayString, isOverdue } from '../utils/dateUtils';
+import { formatDateVi, getTodayString, isOverdue } from '../utils/dateUtils';
 import { 
   ChevronLeft, 
   ChevronRight, 
   Plus, 
   Calendar as CalIcon, 
-  Clock, 
-  Paperclip, 
-  CheckSquare, 
-  Layers,
-  Inbox
+  Clock
 } from 'lucide-react';
 
 interface CalendarViewProps {
@@ -31,7 +27,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const today = getTodayString();
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
-  const [showUnscheduled, setShowUnscheduled] = useState(true);
 
   const year = currentMonthDate.getFullYear();
   const month = currentMonthDate.getMonth();
@@ -55,9 +50,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const daysHeader = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-
-  // Identify unscheduled tasks (no dates set)
-  const unscheduledTasks = tasks.filter((t) => !t.dueDate && !t.startDate);
 
   // Generate calendar cells (including padding for previous and next month)
   const calendarCells = [];
@@ -116,43 +108,28 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Unscheduled dock toggle button */}
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setShowUnscheduled(!showUnscheduled)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors ${
-              showUnscheduled
-                ? 'bg-blue-50 border-blue-200 text-[#2383e2] dark:bg-blue-950/50 dark:border-blue-800'
-                : (darkMode ? 'border-[#383838] text-[#888]' : 'border-[#e3e2e0] text-[#787774]')
+            onClick={prevMonth}
+            className={`p-1.5 rounded-md border transition-colors ${
+              darkMode ? 'border-[#383838] text-[#aaa]' : 'border-[#e3e2e0] text-[#787774]'
             }`}
           >
-            <Inbox size={13} />
-            <span>Chưa xếp lịch ({unscheduledTasks.length})</span>
+            <ChevronLeft size={16} />
           </button>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={prevMonth}
-              className={`p-1.5 rounded-md border transition-colors ${
-                darkMode ? 'border-[#383838] text-[#aaa]' : 'border-[#e3e2e0] text-[#787774]'
-              }`}
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={nextMonth}
-              className={`p-1.5 rounded-md border transition-colors ${
-                darkMode ? 'border-[#383838] text-[#aaa]' : 'border-[#e3e2e0] text-[#787774]'
-              }`}
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
+          <button
+            onClick={nextMonth}
+            className={`p-1.5 rounded-md border transition-colors ${
+              darkMode ? 'border-[#383838] text-[#aaa]' : 'border-[#e3e2e0] text-[#787774]'
+            }`}
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
-      {/* Main Content: Calendar Grid + Optional Unscheduled Sidebar */}
-      <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 overflow-hidden">
+      {/* Main Content: Full-width Calendar Grid */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Calendar Grid Container */}
         <div className={`flex-1 rounded-xl border overflow-hidden flex flex-col shadow-xs ${
           darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
@@ -257,67 +234,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             })}
           </div>
         </div>
-
-        {/* Unscheduled / Backlog Tasks Dock */}
-        {showUnscheduled && (
-          <div className={`w-full lg:w-72 rounded-xl border flex flex-col shrink-0 overflow-hidden shadow-xs ${
-            darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
-          }`}>
-            <div className={`p-3 border-b flex items-center justify-between ${
-              darkMode ? 'bg-[#181818] border-[#2f2f2f]' : 'bg-[#f7f6f3] border-[#e8e7e4]'
-            }`}>
-              <div className="flex items-center gap-2">
-                <Inbox size={14} className="text-[#9b9a97]" />
-                <span className="text-xs font-bold text-[#37352f] dark:text-white">Chưa xếp lịch</span>
-                <span className="text-xs font-mono text-[#9b9a97]">({unscheduledTasks.length})</span>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 no-scrollbar">
-              {unscheduledTasks.length === 0 ? (
-                <div className="text-center py-8 text-[#9b9a97] text-xs">
-                  Không có công việc nào chưa xếp lịch.
-                </div>
-              ) : (
-                unscheduledTasks.map((task) => {
-                  const col = project.columns.find((c) => c.id === task.status);
-                  const colColor = col ? col.color : 'gray';
-                  const colStyle = NOTION_COLORS[colColor] || NOTION_COLORS.gray;
-
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={() => onTaskClick(task)}
-                      className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all hover:scale-[1.01] space-y-1.5 ${
-                        darkMode ? 'bg-[#242424] border-[#313131] hover:border-[#444]' : 'bg-[#fbfbfa] border-[#e8e7e4] hover:border-[#ccc]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${colStyle.badgeBg}`}>
-                          {col?.title || 'Chưa xếp lịch'}
-                        </span>
-                        {task.priority !== 'none' && (
-                          <span className="text-[10px] text-[#9b9a97] uppercase font-mono">
-                            {task.priority}
-                          </span>
-                        )}
-                      </div>
-
-                      <h4 className="font-semibold text-[#37352f] dark:text-white truncate">
-                        {task.title}
-                      </h4>
-
-                      <div className="flex items-center justify-between text-[10px] text-[#9b9a97] pt-1 border-t border-black/5 dark:border-white/5">
-                        <span>Bấm để gán ngày hạn</span>
-                        <span className="text-[#2383e2] font-semibold">Chi tiết →</span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

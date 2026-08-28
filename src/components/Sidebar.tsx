@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MainSectionType, ProjectPage, TaskNotification, User, TeamId, FIXED_TEAMS, AppTheme } from '../types';
 import { NotificationCenter } from './NotificationCenter';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { 
   ChevronDown, 
   Search, 
@@ -90,6 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [hoveredPageId, setHoveredPageId] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectPage | null>(null);
   const [collapsedTeams, setCollapsedTeams] = useState<Record<TeamId, boolean>>({
     performance_marketing: false,
     book_growth: false,
@@ -102,20 +104,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const getProjectTeamId = (p: ProjectPage): TeamId => {
     if (p.teamId) return p.teamId;
-    const cat = (p.category || '').toLowerCase();
-    const title = p.title.toLowerCase();
+    const cat = (p.category || '').toLowerCase().trim();
+    const title = (p.title || '').toLowerCase().trim();
+    
+    // 1. Check book_growth first
     if (
-      cat.includes('marketing') ||
-      cat.includes('ads') ||
-      cat.includes('growth') ||
-      title.includes('marketing') ||
-      title.includes('ads') ||
-      title.includes('cro') ||
-      title.includes('acquisition')
-    ) {
-      return 'performance_marketing';
-    }
-    if (
+      cat === 'book growth' ||
       cat.includes('book') ||
       cat.includes('sách') ||
       title.includes('sách') ||
@@ -125,11 +119,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ) {
       return 'book_growth';
     }
+
+    // 2. Check performance_marketing
+    if (
+      cat === 'performance marketing' ||
+      cat.includes('performance') ||
+      cat.includes('marketing') ||
+      cat.includes('ads') ||
+      title.includes('marketing') ||
+      title.includes('ads') ||
+      title.includes('cro') ||
+      title.includes('acquisition')
+    ) {
+      return 'performance_marketing';
+    }
+
     return 'product';
   };
 
-  const favoriteProjects = projects.filter((p) => p.isFavorite);
-  const regularProjects = projects.filter((p) => !p.isFavorite);
+  const activeProjects = projects.filter((p) => !p.isDeleted);
+  const favoriteProjects = activeProjects.filter((p) => p.isFavorite);
+  const regularProjects = activeProjects.filter((p) => !p.isFavorite);
 
   // Count uncompleted tasks assigned to or awaiting review from the current user
   const myPendingTasksCount = currentUser
@@ -270,16 +280,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
           </button>
-
-          <button
-            onClick={() => onAddProject()}
-            title="Tạo bảng mới"
-            className={`p-2 rounded-lg transition-colors ${
-              darkMode ? 'hover:bg-[#2f2f2f] text-[#a3a3a3]' : 'hover:bg-[#ebeae7] text-[#787774]'
-            }`}
-          >
-            <Plus size={18} />
-          </button>
         </div>
       </div>
     );
@@ -308,9 +308,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Nút thu gọn sidebar đẩy lên trên cùng, cạnh QANDA Workspace */}
+          <button
+            onClick={onToggleCollapse}
+            className={`p-1.5 rounded-lg text-[#9b9a97] hover:text-[#37352f] dark:hover:text-white transition-colors shrink-0 ${
+              darkMode ? 'hover:bg-[#2c2c2c]' : 'hover:bg-[#ebeae7]'
+            }`}
+            title="Thu gọn thanh bên"
+          >
+            <PanelLeftClose size={16} />
+          </button>
         </div>
 
-        {/* SECTION: MY TASKS (Requirement 3) */}
+        {/* SECTION: MY TASKS */}
         <div className="mt-2.5">
           <button
             onClick={onSelectMyTasks}
@@ -322,7 +333,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center gap-2.5">
               <CheckSquare size={16} className={activeSection === 'my_tasks' ? 'text-white' : 'text-[#2383e2]'} />
-              <span>Công việc của tôi (My Tasks)</span>
+              <span>Công việc của tôi</span>
             </div>
             {myPendingTasksCount > 0 && (
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
@@ -522,13 +533,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   >
                                     <Star size={12} />
                                   </button>
-                                  {projects.length > 1 && (
+                                  {activeProjects.length > 1 && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm(`Bạn có chắc chắn muốn xóa bảng "${proj.title}"?`)) {
-                                          onDeleteProject(proj.id);
-                                        }
+                                        setProjectToDelete(proj);
                                       }}
                                       className="p-1 text-[#9b9a97] hover:text-red-500 transition-colors"
                                       title="Xóa bảng"
@@ -541,7 +550,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
                                 darkMode ? 'bg-[#333] text-[#888]' : 'bg-[#e2e1de] text-[#787774]'
                               }`}>
-                                {proj.tasks.length}
+                                {(proj.tasks || []).filter(t => !t.isDeleted).length}
                               </span>
                             </div>
                           </div>
@@ -708,27 +717,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {currentUser ? 'Tài khoản' : ''}
           </div>
         </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <button
-            onClick={onOpenAuthModal}
-            className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-[#9b9a97] hover:text-[#2383e2] transition-colors"
-            title="Nhấn để xem trạng thái kết nối Supabase"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Đồng bộ Cloud / Local</span>
-          </button>
-          <button
-            onClick={onToggleCollapse}
-            className={`p-1.5 rounded-md text-[#9b9a97] transition-colors ${
-              darkMode ? 'hover:bg-[#2c2c2c]' : 'hover:bg-[#ebeae7]'
-            }`}
-            title="Thu gọn thanh bên"
-          >
-            <PanelLeftClose size={15} />
-          </button>
-        </div>
       </div>
+
+      {/* Delete Project Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!projectToDelete}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={() => {
+          if (projectToDelete) {
+            onDeleteProject(projectToDelete.id);
+            setProjectToDelete(null);
+          }
+        }}
+        title={`Xóa bảng "${projectToDelete?.title}"?`}
+        description={`Tất cả các công việc trong bảng này (${(projectToDelete?.tasks || []).filter(t => !t.isDeleted).length} công việc) sẽ được chuyển vào Thùng rác.`}
+        confirmText="Xóa bảng & Chuyển task vào Thùng rác"
+        cancelText="Hủy bỏ"
+        darkMode={darkMode}
+      />
     </aside>
   );
 };

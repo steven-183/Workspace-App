@@ -272,7 +272,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold">Công việc của tôi (My Tasks)</h1>
+                <h1 className="text-xl sm:text-2xl font-bold">Công việc của tôi</h1>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#2383e2]/10 text-[#2383e2] font-semibold">
                   {currentUser.name}
                 </span>
@@ -284,16 +284,6 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <NotificationCenter
-              notifications={notifications}
-              currentUser={currentUser}
-              onOpenTask={onOpenTask}
-              onMarkAsRead={onMarkAsRead}
-              onMarkAllAsRead={onMarkAllAsRead}
-              onClearNotification={onClearNotification}
-              darkMode={darkMode}
-            />
-
             <button
               onClick={onAddNewTaskForUser}
               className="px-3.5 py-2 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all"

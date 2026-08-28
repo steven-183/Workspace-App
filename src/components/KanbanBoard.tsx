@@ -112,105 +112,40 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="w-full h-full overflow-x-auto p-6 sm:p-10 no-scrollbar">
-      <div className="flex items-start gap-4 min-w-max pb-12">
-        {columns.map((col) => {
+    <div className="w-full h-full overflow-x-auto p-6 sm:p-8 no-scrollbar">
+      <div className="flex items-start gap-6 min-w-max pb-12">
+        {columns.map((col, colIndex) => {
           const colTasks = tasks
             .filter((t) => t.status === col.id)
             .sort((a, b) => (a.order || 0) - (b.order || 0));
 
           const colStyle = NOTION_COLORS[col.color] || NOTION_COLORS.gray;
           const isDragOver = dragOverColumnId === col.id;
+          const isLastColumn = colIndex === columns.length - 1;
 
           return (
             <div
               key={col.id}
               onDragOver={(e) => handleDragOverColumn(e, col.id)}
               onDrop={(e) => handleDropOnColumn(e, col.id)}
-              className={`w-72 sm:w-80 shrink-0 flex flex-col rounded-xl transition-all ${
+              className={`w-72 sm:w-80 shrink-0 flex flex-col transition-all ${
+                !isLastColumn ? (darkMode ? 'pr-6 border-r border-[#2d2d2d]' : 'pr-6 border-r border-[#e5e4e0]') : ''
+              } ${
                 isDragOver 
-                  ? (darkMode ? 'bg-[#222] ring-2 ring-[#0284c7]' : 'bg-[#eef6fc] ring-2 ring-[#2383e2]')
-                  : (darkMode ? 'bg-transparent' : 'bg-transparent')
+                  ? (darkMode ? 'bg-[#222]/50 ring-2 ring-[#0284c7] rounded-xl p-2' : 'bg-[#eef6fc]/50 ring-2 ring-[#2383e2] rounded-xl p-2')
+                  : ''
               }`}
             >
               {/* Column Header */}
-              <div className="flex items-center justify-between py-2 px-1 mb-1 group">
+              <div className="flex items-center justify-between py-2 px-1 mb-2">
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-md font-semibold flex items-center gap-1.5 ${colStyle.badgeBg}`}>
+                  <span className={`text-xs px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5 ${colStyle.badgeBg}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${colStyle.dot}`} />
                     {col.title}
                   </span>
                   <span className={`text-xs font-mono font-medium ${darkMode ? 'text-[#777]' : 'text-[#9b9a97]'}`}>
                     {colTasks.length}
                   </span>
-                </div>
-
-                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => {
-                      setQuickAddColumnId(col.id);
-                      setQuickAddTitle('');
-                    }}
-                    className={`p-1 rounded-md transition-colors ${
-                      darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#ebeae7] text-[#787774]'
-                    }`}
-                    title="Thêm thẻ vào cột này"
-                  >
-                    <Plus size={14} />
-                  </button>
-
-                  <div className="relative">
-                    <button
-                      onClick={() => setActiveColumnMenu(activeColumnMenu === col.id ? null : col.id)}
-                      className={`p-1 rounded-md transition-colors ${
-                        darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#ebeae7] text-[#787774]'
-                      }`}
-                    >
-                      <MoreHorizontal size={14} />
-                    </button>
-
-                    {/* Column Options Menu */}
-                    {activeColumnMenu === col.id && (
-                      <div className={`absolute top-full right-0 mt-1 w-48 rounded-xl shadow-2xl border p-1 z-30 ${
-                        darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-                      }`}>
-                        <div className="px-2 py-1 text-[10px] font-semibold text-[#9b9a97] uppercase">Màu sắc cột</div>
-                        <div className="grid grid-cols-5 gap-1 p-1">
-                          {(Object.keys(NOTION_COLORS) as NotionColor[]).map((c) => (
-                            <button
-                              key={c}
-                              onClick={() => {
-                                onUpdateColumn(col.id, col.title, c);
-                                setActiveColumnMenu(null);
-                              }}
-                              className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${
-                                NOTION_COLORS[c].badgeBg
-                              } ${col.color === c ? 'ring-2 ring-black dark:ring-white' : 'hover:scale-110'}`}
-                            >
-                              <span className={`w-2 h-2 rounded-full ${NOTION_COLORS[c].dot}`} />
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className={`my-1 border-t ${darkMode ? 'border-[#383838]' : 'border-[#ededeb]'}`} />
-
-                        {columns.length > 1 && (
-                          <button
-                            onClick={() => {
-                              if (confirm(`Bạn có chắc muốn xóa cột "${col.title}"?`)) {
-                                onDeleteColumn(col.id);
-                              }
-                              setActiveColumnMenu(null);
-                            }}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors"
-                          >
-                            <Trash2 size={13} />
-                            <span>Xóa cột</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -452,101 +387,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             </div>
           );
         })}
-
-        {/* Add New Column Button / Creator */}
-        <div className="w-72 sm:w-80 shrink-0">
-          {showAddColumn ? (
-            <div className={`p-4 rounded-xl border shadow-lg ${
-              darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-            }`}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-semibold text-[#37352f] dark:text-white">Tạo cột mới</span>
-                <button 
-                  onClick={() => setShowAddColumn(false)}
-                  className="text-[#9b9a97] hover:text-[#37352f]"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              <form
-                onSubmit={(e) => {
-                  if (isComposingNewCol) {
-                    e.preventDefault();
-                    return;
-                  }
-                  handleCreateColumn(e);
-                }}
-                className="space-y-3"
-              >
-                <input
-                  type="text"
-                  placeholder="Tên cột (ví dụ: Đang đợi duyệt...)"
-                  value={newColumnTitle}
-                  onChange={(e) => setNewColumnTitle(e.target.value)}
-                  onCompositionStart={() => setIsComposingNewCol(true)}
-                  onCompositionEnd={() => setIsComposingNewCol(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.nativeEvent.isComposing || isComposingNewCol || e.keyCode === 229)) {
-                      e.stopPropagation();
-                    }
-                  }}
-                  className={`w-full text-xs px-2.5 py-2 border rounded-lg outline-none ${
-                    darkMode ? 'bg-[#1e1e1e] border-[#3a3a3a] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
-                  }`}
-                  autoFocus
-                />
-
-                <div>
-                  <div className="text-[11px] text-[#9b9a97] mb-1.5 font-medium">Chọn màu đại diện:</div>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {(Object.keys(NOTION_COLORS) as NotionColor[]).map((c) => (
-                      <button
-                        type="button"
-                        key={c}
-                        onClick={() => setNewColumnColor(c)}
-                        className={`h-7 rounded-md flex items-center justify-center transition-all ${
-                          NOTION_COLORS[c].badgeBg
-                        } ${newColumnColor === c ? 'ring-2 ring-[#0284c7]' : 'hover:scale-105'}`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${NOTION_COLORS[c].dot}`} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddColumn(false)}
-                    className="px-3 py-1.5 text-xs text-[#787774] hover:text-[#37352f]"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!newColumnTitle.trim()}
-                    className="px-3.5 py-1.5 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-semibold rounded-lg disabled:opacity-40"
-                  >
-                    Tạo cột
-                  </button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowAddColumn(true)}
-              className={`w-full py-2.5 px-4 rounded-xl border border-dashed text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-                darkMode 
-                  ? 'border-[#333] text-[#777] hover:border-[#555] hover:text-[#ccc] hover:bg-[#222]' 
-                  : 'border-[#d0cfcd] text-[#787774] hover:border-[#a09e9a] hover:text-[#37352f] hover:bg-[#f1f1ef]'
-              }`}
-            >
-              <Plus size={15} />
-              <span>Thêm cột mới</span>
-            </button>
-          )}
-        </div>
       </div>
     </div>
   );

@@ -140,21 +140,39 @@ export default function App() {
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(DARK_MODE_KEY) === 'true';
-    } catch {
+      const savedUser = localStorage.getItem(USER_KEY);
+      const savedDark = localStorage.getItem(DARK_MODE_KEY);
+      if (savedDark !== null) {
+        return savedDark === 'true';
+      }
+      // When not logged in, default is dark mode
+      if (!savedUser) {
+        return true;
+      }
       return false;
+    } catch {
+      return true;
     }
   });
 
   const [appTheme, setAppTheme] = useState<AppTheme>(() => {
     try {
+      const savedUser = localStorage.getItem(USER_KEY);
       const savedTheme = localStorage.getItem(THEME_KEY) as AppTheme;
       if (savedTheme === 'qanda_pink' || savedTheme === 'dark' || savedTheme === 'light') {
         return savedTheme;
       }
-      return localStorage.getItem(DARK_MODE_KEY) === 'true' ? 'dark' : 'light';
-    } catch {
+      const savedDark = localStorage.getItem(DARK_MODE_KEY);
+      if (savedDark !== null) {
+        return savedDark === 'true' ? 'dark' : 'light';
+      }
+      // When not logged in, default is dark theme
+      if (!savedUser) {
+        return 'dark';
+      }
       return 'light';
+    } catch {
+      return 'dark';
     }
   });
 
@@ -443,7 +461,12 @@ export default function App() {
 
   // Current active project
   const activeProject = useMemo(() => {
-    return projects.find((p) => p.id === activeProjectId) || projects[0] || INITIAL_PROJECTS[0];
+    return (
+      projects.find((p) => p.id === activeProjectId && !p.isDeleted) ||
+      projects.find((p) => !p.isDeleted) ||
+      projects[0] ||
+      INITIAL_PROJECTS[0]
+    );
   }, [projects, activeProjectId]);
 
   // Modal project for TaskDetailModal (either active project or task's parent project)
@@ -579,13 +602,47 @@ export default function App() {
   };
 
   const handleDeleteProject = (projId: string) => {
-    if (projects.length <= 1) return;
-    const remaining = projects.filter((p) => p.id !== projId);
-    setProjects(remaining);
-    deleteProjectFromSupabase(projId);
-    if (activeProjectId === projId) {
-      setActiveProjectId(remaining[0].id);
-    }
+    const targetProject = projects.find((p) => p.id === projId);
+    if (!targetProject) return;
+
+    const now = new Date().toISOString();
+    const taskCount = (targetProject.tasks || []).filter((t) => !t.isDeleted).length;
+
+    // Mark all tasks in this project as deleted (moved to trash)
+    const updatedTasks: Task[] = (targetProject.tasks || []).map((t) => ({
+      ...t,
+      isDeleted: true,
+      deletedAt: now,
+    }));
+
+    // Update in state: mark project as isDeleted: true with deleted tasks
+    setProjects((prev) => {
+      const updated = prev.map((p) =>
+        p.id === projId
+          ? {
+              ...p,
+              isDeleted: true,
+              deletedAt: now,
+              tasks: updatedTasks,
+            }
+          : p
+      );
+
+      const activeRemaining = updated.filter((p) => !p.isDeleted);
+      if (activeRemaining.length > 0 && activeProjectId === projId) {
+        setActiveProjectId(activeRemaining[0].id);
+      }
+      return updated;
+    });
+
+    // Delete/move in Supabase
+    deleteProjectFromSupabase(projId, updatedTasks);
+
+    triggerToast({
+      title: 'Đã xóa bảng công việc',
+      message: `Bảng "${targetProject.title}" đã được xóa. ${taskCount} công việc đã được chuyển vào Thùng rác.`,
+      type: 'property_change',
+    });
   };
 
   const handleToggleFavorite = (projId: string) => {
@@ -599,18 +656,23 @@ export default function App() {
 
   // Task Actions
   const handleAddNewTask = (initialStart?: string, initialDue?: string) => {
+    const targetProject = projects.find((p) => p.id === activeProjectId && !p.isDeleted) || activeProject;
     const today = getTodayString();
+    const defaultStatus = (targetProject.columns && targetProject.columns.length > 0)
+      ? targetProject.columns[0].id
+      : 'todo';
+
     const newTask: Task = {
       id: `task-${Date.now()}`,
       title: 'Công việc mới',
-      status: 'todo',
+      status: defaultStatus,
       priority: 'medium',
       startDate: initialStart || today,
       dueDate: initialDue || addDays(today, 3),
       assignees: currentUser ? [currentUser] : [],
-      tags: [SAMPLE_TAGS[0]],
+      tags: [],
       progress: 0,
-      order: activeProject.tasks.length + 1,
+      order: (targetProject.tasks || []).length + 1,
       subtasks: [],
       description: '',
       blocks: [],
@@ -618,27 +680,33 @@ export default function App() {
       updatedAt: today,
     };
 
-    const updatedTasks = [...activeProject.tasks, newTask];
-    handleUpdateProject({ tasks: updatedTasks });
-    syncTaskToSupabase(activeProjectId, newTask);
-    setSelectedTaskProjectId(activeProjectId);
+    const updatedTasks = [...(targetProject.tasks || []), newTask];
+    setProjects((prev) =>
+      prev.map((p) => (p.id === targetProject.id ? { ...p, tasks: updatedTasks } : p))
+    );
+    syncTaskToSupabase(targetProject.id, newTask);
+    setSelectedTaskProjectId(targetProject.id);
     setSelectedTask(newTask);
   };
 
   const handleAddNewTaskForCurrentUser = () => {
-    const targetProj = activeProject;
+    const targetProj = projects.find((p) => p.id === activeProjectId && !p.isDeleted) || activeProject;
     const today = getTodayString();
+    const defaultStatus = (targetProj.columns && targetProj.columns.length > 0)
+      ? targetProj.columns[0].id
+      : 'todo';
+
     const newTask: Task = {
       id: `task-${Date.now()}`,
       title: 'Việc mới được giao cho tôi',
-      status: 'todo',
+      status: defaultStatus,
       priority: 'high',
       startDate: today,
       dueDate: addDays(today, 2),
       assignees: currentUser ? [currentUser] : [],
-      tags: [SAMPLE_TAGS[0]],
+      tags: [],
       progress: 0,
-      order: targetProj.tasks.length + 1,
+      order: (targetProj.tasks || []).length + 1,
       subtasks: [],
       description: '',
       blocks: [],
@@ -648,7 +716,7 @@ export default function App() {
 
     setProjects((prev) =>
       prev.map((p) =>
-        p.id === targetProj.id ? { ...p, tasks: [...p.tasks, newTask] } : p
+        p.id === targetProj.id ? { ...p, tasks: [...(p.tasks || []), newTask] } : p
       )
     );
     syncTaskToSupabase(targetProj.id, newTask);
@@ -657,11 +725,12 @@ export default function App() {
   };
 
   const handleQuickAddTask = (status: StatusId, title: string) => {
+    const targetProject = projects.find((p) => p.id === activeProjectId) || activeProject;
     const today = getTodayString();
-    const colTasks = activeProject.tasks.filter((t) => t.status === status);
+    const colTasks = (targetProject.tasks || []).filter((t) => t.status === status);
     const newTask: Task = {
       id: `task-${Date.now()}`,
-      title,
+      title: title.trim() || 'Công việc mới',
       status,
       priority: 'none',
       startDate: today,
@@ -677,9 +746,11 @@ export default function App() {
       updatedAt: today,
     };
 
-    const updatedTasks = [...activeProject.tasks, newTask];
-    handleUpdateProject({ tasks: updatedTasks });
-    syncTaskToSupabase(activeProjectId, newTask);
+    const updatedTasks = [...(targetProject.tasks || []), newTask];
+    setProjects((prev) =>
+      prev.map((p) => (p.id === targetProject.id ? { ...p, tasks: updatedTasks } : p))
+    );
+    syncTaskToSupabase(targetProject.id, newTask);
   };
 
   const handleUpdateTaskInProject = useCallback((projId: string, taskId: string, updates: Partial<Task>) => {
@@ -818,7 +889,15 @@ export default function App() {
           }
           return t;
         });
-        return { ...p, tasks: updatedTasks };
+
+        const updatedProject: ProjectPage = {
+          ...p,
+          isDeleted: false,
+          deletedAt: undefined,
+          tasks: updatedTasks,
+        };
+        syncProjectToSupabase(updatedProject);
+        return updatedProject;
       })
     );
     triggerToast({
@@ -1103,15 +1182,10 @@ export default function App() {
           />
         ) : (
           <>
-            {/* Page Header (Simplified Notion Header: Icon, Title, Description, Favorites, Create Task, Notifications) */}
+            {/* Page Header (Simplified Notion Header: Icon, Title, Description, Favorites, Create Task) */}
             <PageHeader
               project={activeProject}
               currentUser={currentUser}
-              notifications={notifications}
-              onOpenTask={handleOpenNotificationTask}
-              onMarkAsRead={handleMarkAsRead}
-              onMarkAllAsRead={handleMarkAllAsRead}
-              onClearNotification={handleClearNotification}
               onUpdateProject={handleUpdateProject}
               onOpenEmojiPicker={() => setShowEmojiPicker(true)}
               onAddNewTask={() => handleAddNewTask()}
