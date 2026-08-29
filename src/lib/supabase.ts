@@ -228,6 +228,19 @@ export async function upsertUserProfile(user: User): Promise<void> {
   }
 }
 
+function safeJsonParse<T>(val: any, fallback: T): T {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return parsed !== null && parsed !== undefined ? parsed : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  return val as T;
+}
+
 // Database API: Projects & Tasks
 export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | null> {
   const supabase = getSupabase();
@@ -246,8 +259,7 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
 
     const { data: tasksData, error: taskError } = await supabase
       .from('tasks')
-      .select('*')
-      .order('order', { ascending: true });
+      .select('*');
 
     if (taskError) {
       console.warn('Supabase tasks fetch warning:', taskError);
@@ -255,7 +267,7 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
     }
 
     const allTasks: Task[] = (tasksData || []).map((row: any) => ({
-      id: row.id,
+      id: String(row.id),
       title: row.title || 'Không có tiêu đề',
       description: row.description || '',
       status: row.status || 'todo',
@@ -264,16 +276,16 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
       dueDate: row.due_date || row.dueDate || '',
       startTime: row.start_time || row.startTime || undefined,
       dueTime: row.due_time || row.dueTime || undefined,
-      assignees: row.assignees || [],
-      creator: row.creator || undefined,
-      followers: row.followers || [],
-      tags: row.tags || [],
-      progress: row.progress || 0,
-      subtasks: row.subtasks || [],
-      blocks: row.blocks || [],
-      comments: row.comments || [],
-      attachments: row.attachments || [],
-      activityLogs: row.activity_logs || row.activityLogs || [],
+      assignees: safeJsonParse(row.assignees, []),
+      creator: safeJsonParse(row.creator, undefined),
+      followers: safeJsonParse(row.followers, []),
+      tags: safeJsonParse(row.tags, []),
+      progress: typeof row.progress === 'number' ? row.progress : 0,
+      subtasks: safeJsonParse(row.subtasks, []),
+      blocks: safeJsonParse(row.blocks, []),
+      comments: safeJsonParse(row.comments, []),
+      attachments: safeJsonParse(row.attachments, []),
+      activityLogs: safeJsonParse(row.activity_logs || row.activityLogs, []),
       isArchived: Boolean(row.is_archived || row.isArchived),
       isDeleted: Boolean(row.is_deleted || row.isDeleted),
       deletedAt: row.deleted_at || row.deletedAt || undefined,
@@ -281,13 +293,13 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
       icon: row.icon,
       createdAt: row.created_at || row.createdAt || '',
       updatedAt: row.updated_at || row.updatedAt || '',
-      order: row.order || 1,
+      order: typeof row.order === 'number' ? row.order : 1,
     }));
 
     const result: ProjectPage[] = (projectsData || []).map((row: any) => {
       const pTasks = allTasks.filter((t: any) => {
-        const rawTask = (tasksData || []).find((r: any) => r.id === t.id);
-        return rawTask?.project_id === row.id;
+        const rawTask = (tasksData || []).find((r: any) => String(r.id) === String(t.id));
+        return String(rawTask?.project_id) === String(row.id);
       });
 
       const cat = (row.category || '').toLowerCase().trim();
@@ -316,7 +328,7 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
       }
 
       return {
-        id: row.id,
+        id: String(row.id),
         title: row.title,
         icon: row.icon || '📋',
         coverImage: row.cover_image,
@@ -324,9 +336,9 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
         category: row.category || 'Dự án',
         teamId: (row.team_id as TeamId) || derivedTeamId,
         isFavorite: row.is_favorite || false,
-        views: row.views || ['kanban', 'timeline', 'table', 'calendar', 'list'],
+        views: safeJsonParse(row.views, ['kanban', 'timeline', 'table', 'calendar', 'list']),
         activeView: row.active_view || 'kanban',
-        columns: row.columns || [],
+        columns: safeJsonParse(row.columns, []),
         createdAt: row.created_at || '',
         tasks: pTasks,
       };
@@ -347,56 +359,40 @@ export async function syncProjectToSupabase(project: ProjectPage): Promise<void>
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData?.user?.id || null;
 
-    // Upsert project row
-    await supabase.from('projects').upsert(
-      {
-        id: project.id,
-        user_id: userId,
-        title: project.title,
-        icon: project.icon,
-        description: project.description,
-        category: project.category || 'Dự án',
-        is_favorite: project.isFavorite,
-        views: project.views,
-        active_view: project.activeView,
-        columns: project.columns,
-      },
-      { onConflict: 'id' }
-    );
+    const baseProjectPayload: any = {
+      id: project.id,
+      title: project.title,
+      icon: project.icon || '📋',
+      description: project.description || '',
+      category: project.category || 'Dự án',
+      is_favorite: project.isFavorite,
+      views: project.views || ['kanban', 'timeline', 'table', 'calendar', 'list'],
+      active_view: project.activeView || 'kanban',
+      columns: project.columns || [],
+    };
+
+    if (userId) {
+      baseProjectPayload.user_id = userId;
+    }
+
+    // Attempt upsert with team_id
+    const fullProjectPayload = {
+      ...baseProjectPayload,
+      team_id: project.teamId || 'product',
+    };
+
+    const { error: projError } = await supabase.from('projects').upsert(fullProjectPayload, { onConflict: 'id' });
+    if (projError) {
+      console.warn('Supabase projects upsert full error, trying base fields:', projError.message);
+      // Fallback without team_id or user_id if column not found
+      await supabase.from('projects').upsert(baseProjectPayload, { onConflict: 'id' });
+    }
 
     // Upsert all tasks in this project
     if (project.tasks && project.tasks.length > 0) {
-      const taskRows = project.tasks.map((t) => ({
-        id: t.id,
-        project_id: project.id,
-        title: t.title || 'Không có tiêu đề',
-        description: t.description || '',
-        status: t.status,
-        priority: t.priority,
-        start_date: t.startDate ? t.startDate : null,
-        due_date: t.dueDate ? t.dueDate : null,
-        start_time: t.startTime || null,
-        due_time: t.dueTime || null,
-        progress: t.progress || 0,
-        order: t.order || 1,
-        assignees: t.assignees || [],
-        creator: t.creator || null,
-        followers: t.followers || [],
-        tags: t.tags || [],
-        subtasks: t.subtasks || [],
-        blocks: t.blocks || [],
-        comments: t.comments || [],
-        attachments: t.attachments || [],
-        activity_logs: t.activityLogs || [],
-        is_archived: Boolean(t.isArchived),
-        is_deleted: Boolean(t.isDeleted),
-        deleted_at: t.deletedAt || null,
-        cover_image: t.coverImage || null,
-        icon: t.icon || null,
-        updated_at: new Date().toISOString(),
-      }));
-
-      await supabase.from('tasks').upsert(taskRows, { onConflict: 'id' });
+      for (const t of project.tasks) {
+        await syncTaskToSupabase(project.id, t, project);
+      }
     }
   } catch (err) {
     console.error('Error syncing project to Supabase:', err);
@@ -461,19 +457,19 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
   if (!supabase) return;
 
   try {
-    const payload = {
-      id: task.id,
+    const fullPayload: any = {
+      id: String(task.id),
       project_id: projectId,
       title: task.title || 'Không có tiêu đề',
       description: task.description || '',
-      status: task.status,
-      priority: task.priority,
+      status: task.status || 'todo',
+      priority: task.priority || 'none',
       start_date: task.startDate ? task.startDate : null,
       due_date: task.dueDate ? task.dueDate : null,
       start_time: task.startTime || null,
       due_time: task.dueTime || null,
-      progress: task.progress || 0,
-      order: task.order || 1,
+      progress: typeof task.progress === 'number' ? task.progress : 0,
+      order: typeof task.order === 'number' ? task.order : 1,
       assignees: task.assignees || [],
       creator: task.creator || null,
       followers: task.followers || [],
@@ -491,9 +487,12 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
+    // Attempt standard upsert
+    let { error } = await supabase.from('tasks').upsert(fullPayload, { onConflict: 'id' });
+
     if (error) {
-      console.warn('Supabase tasks upsert error, attempting recovery:', error);
+      console.warn('Supabase tasks upsert initial error:', error.message);
+
       // If foreign key constraint on project_id or project row missing
       if (error.code === '23503' || error.message?.includes('foreign key') || error.message?.includes('project_id') || error.message?.includes('projects')) {
         await supabase.from('projects').upsert({
@@ -507,7 +506,41 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
           created_at: new Date().toISOString(),
         }, { onConflict: 'id' });
 
-        await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
+        const retry = await supabase.from('tasks').upsert(fullPayload, { onConflict: 'id' });
+        error = retry.error;
+      }
+
+      // If failed due to extra columns (e.g. comments, attachments, activity_logs, start_time, due_time, cover_image, icon not in DB)
+      if (error) {
+        console.warn('Retrying tasks upsert with minimal core schema matching DB:', error.message);
+        const minimalPayload: any = {
+          id: String(task.id),
+          project_id: projectId,
+          title: task.title || 'Không có tiêu đề',
+          description: task.description || '',
+          status: task.status || 'todo',
+          priority: task.priority || 'none',
+          start_date: task.startDate ? task.startDate : null,
+          due_date: task.dueDate ? task.dueDate : null,
+          progress: typeof task.progress === 'number' ? task.progress : 0,
+          order: typeof task.order === 'number' ? task.order : 1,
+          assignees: task.assignees || [],
+          creator: task.creator || null,
+          followers: task.followers || [],
+          tags: task.tags || [],
+          subtasks: task.subtasks || [],
+          blocks: task.blocks || [],
+          is_archived: Boolean(task.isArchived),
+          is_deleted: Boolean(task.isDeleted),
+          updated_at: new Date().toISOString(),
+        };
+
+        const minRetry = await supabase.from('tasks').upsert(minimalPayload, { onConflict: 'id' });
+        if (minRetry.error) {
+          console.error('Final fallback task upsert error:', minRetry.error);
+        } else {
+          console.log('Task saved successfully with minimal schema fallback!');
+        }
       }
     }
   } catch (err) {

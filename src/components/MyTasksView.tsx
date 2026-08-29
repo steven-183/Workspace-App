@@ -73,13 +73,27 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       (proj.tasks || []).forEach((t) => {
         if (t.isDeleted || t.isArchived) return;
 
-        const isAssignee = !!t.assignees?.some(
-          (u) => u.id === currentUser.id || (currentUser.email && u.email?.toLowerCase() === currentUser.email.toLowerCase())
-        );
+        const isAssignee = !!t.assignees?.some((u: any) => {
+          if (!u) return false;
+          if (typeof u === 'string') {
+            const str = u.toLowerCase().trim();
+            const currEmail = (currentUser.email || '').toLowerCase().trim();
+            const currName = (currentUser.name || '').toLowerCase().trim();
+            return (currEmail && str === currEmail) || (currName && str === currName) || str === currentUser.id;
+          }
+          const matchId = u.id && u.id === currentUser.id;
+          const matchEmail = u.email && currentUser.email && u.email.trim().toLowerCase() === currentUser.email.trim().toLowerCase();
+          const matchName = u.name && currentUser.name && u.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+          return matchId || matchEmail || matchName;
+        });
 
         const isReviewer = !!(
           t.creator &&
-          (t.creator.id === currentUser.id || (currentUser.email && t.creator.email?.toLowerCase() === currentUser.email.toLowerCase()))
+          (
+            t.creator.id === currentUser.id ||
+            (currentUser.email && t.creator.email && t.creator.email.trim().toLowerCase() === currentUser.email.trim().toLowerCase()) ||
+            (currentUser.name && t.creator.name && t.creator.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+          )
         );
 
         // Include task if user is assigned OR if user is the reviewer (and especially when waiting for review)

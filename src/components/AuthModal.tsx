@@ -14,7 +14,11 @@ import {
   CheckCircle2, 
   UserPlus,
   Send,
-  HelpCircle
+  HelpCircle,
+  Database,
+  Copy,
+  Terminal,
+  ExternalLink
 } from 'lucide-react';
 import { 
   signInWithEmail, 
@@ -32,7 +36,83 @@ interface AuthModalProps {
   darkMode: boolean;
 }
 
-type AuthTab = 'signin' | 'signup';
+type AuthTab = 'signin' | 'signup' | 'sql_guide';
+
+const SUPABASE_INIT_SQL = `-- 1. TẠO BẢNG PROFILES (Lưu hồ sơ thành viên)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id TEXT PRIMARY KEY,
+  full_name TEXT,
+  email TEXT,
+  avatar_url TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 2. TẠO BẢNG PROJECTS (Lưu các bảng dự án)
+CREATE TABLE IF NOT EXISTS public.projects (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  title TEXT NOT NULL,
+  icon TEXT DEFAULT '📋',
+  description TEXT DEFAULT '',
+  category TEXT DEFAULT 'Dự án',
+  team_id TEXT DEFAULT 'product',
+  is_favorite BOOLEAN DEFAULT false,
+  views JSONB DEFAULT '["kanban", "timeline", "table", "calendar", "list"]'::jsonb,
+  active_view TEXT DEFAULT 'kanban',
+  columns JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 3. TẠO BẢNG TASKS (Lưu công việc và phân công)
+CREATE TABLE IF NOT EXISTS public.tasks (
+  id TEXT PRIMARY KEY,
+  project_id TEXT REFERENCES public.projects(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status TEXT DEFAULT 'backlog',
+  priority TEXT DEFAULT 'none',
+  start_date TEXT,
+  due_date TEXT,
+  start_time TEXT,
+  due_time TEXT,
+  progress INTEGER DEFAULT 0,
+  "order" NUMERIC DEFAULT 1,
+  assignees JSONB DEFAULT '[]'::jsonb,
+  creator JSONB,
+  followers JSONB DEFAULT '[]'::jsonb,
+  tags JSONB DEFAULT '[]'::jsonb,
+  subtasks JSONB DEFAULT '[]'::jsonb,
+  blocks JSONB DEFAULT '[]'::jsonb,
+  comments JSONB DEFAULT '[]'::jsonb,
+  attachments JSONB DEFAULT '[]'::jsonb,
+  activity_logs JSONB DEFAULT '[]'::jsonb,
+  is_archived BOOLEAN DEFAULT false,
+  is_deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  cover_image TEXT,
+  icon TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+-- 4. BẬT BẢNG REALTIME TRONG SUPABASE (Đồng bộ tức thì)
+ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+
+-- 5. MỞ QUYỀN TRUY CẬP ĐỂ CẢ TEAM ĐỀU THẤY TASK CỦA NHAU
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public Profiles Policy" ON public.profiles;
+CREATE POLICY "Public Profiles Policy" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Projects Policy" ON public.projects;
+CREATE POLICY "Public Projects Policy" ON public.projects FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Tasks Policy" ON public.tasks;
+CREATE POLICY "Public Tasks Policy" ON public.tasks FOR ALL USING (true) WITH CHECK (true);`;
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
@@ -43,6 +123,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   darkMode,
 }) => {
   const [authTab, setAuthTab] = useState<AuthTab>('signin');
+  const [copiedSql, setCopiedSql] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -54,6 +135,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isEmailUnconfirmed, setIsEmailUnconfirmed] = useState(false);
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_INIT_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -226,7 +313,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }`}
       >
         {/* Header */}
-        <div className={`p-5 border-b flex items-center justify-between ${
+        <div className={`p-4 sm:p-5 border-b flex items-center justify-between ${
           darkMode ? 'border-[#313131] bg-[#1a1a1a]' : 'border-[#ededeb] bg-[#fbfbfa]'
         }`}>
           <div className="flex items-center gap-2.5">
@@ -235,9 +322,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold leading-tight">Tài khoản & Xác thực</h2>
+                <h2 className="text-sm font-bold leading-tight">Tài khoản & Cơ sở dữ liệu</h2>
               </div>
-              <p className="text-[11px] text-[#9b9a97]">Đăng nhập Email & Mật khẩu để đồng bộ công việc</p>
+              <p className="text-[11px] text-[#9b9a97]">Đồng bộ công việc & Phân quyền dự án đa người dùng</p>
             </div>
           </div>
 
@@ -251,289 +338,339 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        {/* When user is already logged in: Only show current user info and single Logout button */}
-        {currentUser ? (
-          <div className="p-6 space-y-5">
-            <div className={`p-4 rounded-xl border flex items-center gap-3.5 ${
-              darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-[#f7f6f3] border-[#e8e7e4]'
-            }`}>
-              <img 
-                src={currentUser.avatar} 
-                alt={currentUser.name}
-                referrerPolicy="no-referrer"
-                className="w-12 h-12 rounded-full ring-2 ring-[#2383e2]/40 object-cover shrink-0"
-              />
-              <div className="text-left overflow-hidden flex-1">
-                <div className="text-sm font-bold truncate text-[#37352f] dark:text-white">{currentUser.name}</div>
-                <div className="text-xs text-[#9b9a97] truncate mt-0.5">{currentUser.email}</div>
-                <div className="inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Đã đăng nhập</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onLogout();
-                  onClose();
-                }}
-                className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <LogIn size={15} className="rotate-180" />
-                <span>Đăng xuất</span>
-              </button>
-            </div>
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Tab selector */}
+          <div className={`flex rounded-lg p-1 border text-xs font-medium ${
+            darkMode ? 'bg-[#191919] border-[#313131]' : 'bg-[#f1f1ef] border-[#e3e2e0]'
+          }`}>
+            <button
+              onClick={() => { setAuthTab('signin'); setErrorMessage(null); }}
+              className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                authTab === 'signin'
+                  ? (darkMode ? 'bg-[#2c2c2c] text-white shadow-xs font-bold' : 'bg-white text-[#111] shadow-xs font-bold')
+                  : 'text-[#888] hover:text-[#111] dark:hover:text-white'
+              }`}
+            >
+              <LogIn size={13} />
+              <span>Đăng nhập</span>
+            </button>
+            <button
+              onClick={() => { setAuthTab('signup'); setErrorMessage(null); }}
+              className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                authTab === 'signup'
+                  ? (darkMode ? 'bg-[#2c2c2c] text-white shadow-xs font-bold' : 'bg-white text-[#111] shadow-xs font-bold')
+                  : 'text-[#888] hover:text-[#111] dark:hover:text-white'
+              }`}
+            >
+              <UserPlus size={13} />
+              <span>Đăng ký</span>
+            </button>
+            <button
+              onClick={() => { setAuthTab('sql_guide'); setErrorMessage(null); }}
+              className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                authTab === 'sql_guide'
+                  ? (darkMode ? 'bg-[#2c2c2c] text-blue-400 shadow-xs font-bold' : 'bg-white text-blue-600 shadow-xs font-bold')
+                  : 'text-[#888] hover:text-[#111] dark:hover:text-white'
+              }`}
+            >
+              <Database size={13} />
+              <span>Cài đặt DB</span>
+            </button>
           </div>
-        ) : (
-          <div className="p-5 space-y-4">
-            {/* Tab selector */}
-            <div className={`flex rounded-lg p-1 border text-xs font-medium ${
-              darkMode ? 'bg-[#191919] border-[#313131]' : 'bg-[#f1f1ef] border-[#e3e2e0]'
-            }`}>
-              <button
-                onClick={() => { setAuthTab('signin'); setErrorMessage(null); }}
-                className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
-                  authTab === 'signin'
-                    ? (darkMode ? 'bg-[#2c2c2c] text-white shadow-xs font-bold' : 'bg-white text-[#111] shadow-xs font-bold')
-                    : 'text-[#888] hover:text-[#111] dark:hover:text-white'
-                }`}
-              >
-                <LogIn size={13} />
-                <span>Đăng nhập</span>
-              </button>
-              <button
-                onClick={() => { setAuthTab('signup'); setErrorMessage(null); }}
-                className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
-                  authTab === 'signup'
-                    ? (darkMode ? 'bg-[#2c2c2c] text-white shadow-xs font-bold' : 'bg-white text-[#111] shadow-xs font-bold')
-                    : 'text-[#888] hover:text-[#111] dark:hover:text-white'
-                }`}
-              >
-                <UserPlus size={13} />
-                <span>Đăng ký</span>
-              </button>
-            </div>
 
-            {/* Feedback banners */}
-            {errorMessage && (
-              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs flex items-start gap-2">
-                <AlertCircle size={15} className="shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <span>{errorMessage}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Email Unconfirmed Help & Action Box */}
-            {isEmailUnconfirmed && (
-              <div className={`p-3.5 rounded-xl border space-y-2.5 text-xs ${
-                darkMode ? 'bg-amber-950/30 border-amber-800/60 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+          {/* Current User Card when logged in (shown if on signin tab) */}
+          {currentUser && authTab === 'signin' && (
+            <div className="space-y-4">
+              <div className={`p-4 rounded-xl border flex items-center gap-3.5 ${
+                darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-[#f7f6f3] border-[#e8e7e4]'
               }`}>
-                <div className="flex items-start gap-2">
-                  <HelpCircle size={15} className="shrink-0 text-amber-500 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold">Tại sao có thông báo "Email not confirmed"?</p>
-                    <p className="text-[11px] leading-relaxed opacity-90">
-                      Mặc định tài khoản Supabase yêu cầu người dùng phải bấm vào đường link trong email xác thực để kích hoạt trước khi được phép đăng nhập.
-                    </p>
+                <img 
+                  src={currentUser.avatar} 
+                  alt={currentUser.name}
+                  referrerPolicy="no-referrer"
+                  className="w-12 h-12 rounded-full ring-2 ring-[#2383e2]/40 object-cover shrink-0"
+                />
+                <div className="text-left overflow-hidden flex-1">
+                  <div className="text-sm font-bold truncate text-[#37352f] dark:text-white">{currentUser.name}</div>
+                  <div className="text-xs text-[#9b9a97] truncate mt-0.5">{currentUser.email}</div>
+                  <div className="inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Đang đăng nhập</span>
                   </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={isResending || !email.trim()}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 text-[11px]"
-                  >
-                    <Send size={12} />
-                    <span>{isResending ? 'Đang gửi...' : 'Gửi lại email xác thực'}</span>
-                  </button>
-                </div>
-
-                <div className="text-[10.5px] border-t border-amber-200/50 dark:border-amber-800/40 pt-2 opacity-85 space-y-0.5">
-                  <p className="font-semibold text-amber-600 dark:text-amber-400">💡 Mẹo cho Admin (Đăng nhập ngay không cần xác thực):</p>
-                  <p>Vào <strong>Supabase Dashboard</strong> → <strong>Authentication</strong> → <strong>Providers</strong> → chọn <strong>Email</strong> → Tắt mục <strong>"Confirm email"</strong> → Nhấn <strong>Save</strong>.</p>
                 </div>
               </div>
-            )}
 
-            {successMessage && (
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2">
-                <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
-                <span>{successMessage}</span>
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onLogout();
+                    onClose();
+                  }}
+                  className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <LogIn size={15} className="rotate-180" />
+                  <span>Đăng xuất khỏi tài khoản này</span>
+                </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* TAB 1: SIGN IN */}
-            {authTab === 'signin' && (
-              <form onSubmit={handleSignIn} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                    Địa chỉ Email <span className="text-red-500">*</span>
-                  </label>
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                    darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
-                  }`}>
-                    <Mail size={15} className="text-[#888] shrink-0" />
-                    <input
-                      type="email"
-                      required
-                      placeholder="ví dụ: steven.mai@mathpresso.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
-                    />
-                  </div>
+          {/* Feedback banners */}
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs flex items-start gap-2">
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Email Unconfirmed Help & Action Box */}
+          {isEmailUnconfirmed && (
+            <div className={`p-3.5 rounded-xl border space-y-2.5 text-xs ${
+              darkMode ? 'bg-amber-950/30 border-amber-800/60 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}>
+              <div className="flex items-start gap-2">
+                <HelpCircle size={15} className="shrink-0 text-amber-500 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">Tại sao có thông báo "Email not confirmed"?</p>
+                  <p className="text-[11px] leading-relaxed opacity-90">
+                    Mặc định tài khoản Supabase yêu cầu người dùng phải bấm vào đường link trong email xác thực để kích hoạt trước khi được phép đăng nhập.
+                  </p>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                    Mật khẩu <span className="text-red-500">*</span>
-                  </label>
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                    darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
-                  }`}>
-                    <Lock size={15} className="text-[#888] shrink-0" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      placeholder="Nhập mật khẩu..."
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-[#888] hover:text-[#333] dark:hover:text-[#eee] transition-colors"
-                    >
-                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={isResending || !email.trim()}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 text-[11px]"
+                >
+                  <Send size={12} />
+                  <span>{isResending ? 'Đang gửi...' : 'Gửi lại email xác thực'}</span>
+                </button>
+              </div>
+
+              <div className="text-[10.5px] border-t border-amber-200/50 dark:border-amber-800/40 pt-2 opacity-85 space-y-0.5">
+                <p className="font-semibold text-amber-600 dark:text-amber-400">💡 Mẹo cho Admin (Đăng nhập ngay không cần xác thực):</p>
+                <p>Vào <strong>Supabase Dashboard</strong> → <strong>Authentication</strong> → <strong>Providers</strong> → chọn <strong>Email</strong> → Tắt mục <strong>"Confirm email"</strong> → Nhấn <strong>Save</strong>.</p>
+              </div>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400 text-xs flex items-start gap-2">
+              <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
+          {/* TAB 1: SIGN IN */}
+          {!currentUser && authTab === 'signin' && (
+            <form onSubmit={handleSignIn} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
+                  Địa chỉ Email <span className="text-red-500">*</span>
+                </label>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                  darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
+                }`}>
+                  <Mail size={15} className="text-[#888] shrink-0" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="ví dụ: steven.mai@mathpresso.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
+                  />
                 </div>
+              </div>
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={!email.trim() || !password || isSubmitting}
-                    className="w-full py-2.5 px-4 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <LogIn size={15} />
-                    <span>{isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}</span>
-                  </button>
-                </div>
-
-                <div className="text-center pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
+                  Mật khẩu <span className="text-red-500">*</span>
+                </label>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                  darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
+                }`}>
+                  <Lock size={15} className="text-[#888] shrink-0" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Nhập mật khẩu..."
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
+                  />
                   <button
                     type="button"
-                    onClick={() => setAuthTab('signup')}
-                    className="text-xs text-[#2383e2] hover:underline"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[#888] hover:text-[#333] dark:hover:text-[#eee] transition-colors"
                   >
-                    Chưa có tài khoản? Đăng ký ngay
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
-              </form>
-            )}
+              </div>
 
-            {/* TAB 2: SIGN UP */}
-            {authTab === 'signup' && (
-              <form onSubmit={handleSignUp} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                    Họ và tên hiển thị <span className="text-red-500">*</span>
-                  </label>
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                    darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
-                  }`}>
-                    <UserIcon size={15} className="text-[#888] shrink-0" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="ví dụ: Steven Mai"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
-                    />
-                  </div>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={!email.trim() || !password || isSubmitting}
+                  className="w-full py-2.5 px-4 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <LogIn size={15} />
+                  <span>{isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}</span>
+                </button>
+              </div>
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAuthTab('signup')}
+                  className="text-xs text-[#2383e2] hover:underline"
+                >
+                  Chưa có tài khoản? Đăng ký ngay
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* TAB 2: SIGN UP */}
+          {authTab === 'signup' && (
+            <form onSubmit={handleSignUp} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
+                  Họ và tên hiển thị <span className="text-red-500">*</span>
+                </label>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                  darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
+                }`}>
+                  <UserIcon size={15} className="text-[#888] shrink-0" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="ví dụ: Steven Mai"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
+                  />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                    Địa chỉ Email <span className="text-red-500">*</span>
-                  </label>
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                    darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
-                  }`}>
-                    <Mail size={15} className="text-[#888] shrink-0" />
-                    <input
-                      type="email"
-                      required
-                      placeholder="name@company.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
-                    />
-                  </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
+                  Địa chỉ Email <span className="text-red-500">*</span>
+                </label>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                  darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
+                }`}>
+                  <Mail size={15} className="text-[#888] shrink-0" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
+                  />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                    Mật khẩu (tối thiểu 6 ký tự) <span className="text-red-500">*</span>
-                  </label>
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                    darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
-                  }`}>
-                    <Lock size={15} className="text-[#888] shrink-0" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
-                    />
-                  </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
+                  Mật khẩu (tối thiểu 6 ký tự) <span className="text-red-500">*</span>
+                </label>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                  darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
+                }`}>
+                  <Lock size={15} className="text-[#888] shrink-0" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
+                  />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                    Xác nhận lại mật khẩu <span className="text-red-500">*</span>
-                  </label>
-                  <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                    darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
-                  }`}>
-                    <Lock size={15} className="text-[#888] shrink-0" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
-                    />
-                  </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
+                  Xác nhận lại mật khẩu <span className="text-red-500">*</span>
+                </label>
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
+                  darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
+                }`}>
+                  <Lock size={15} className="text-[#888] shrink-0" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
+                  />
                 </div>
+              </div>
 
-                <div className="pt-2">
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={!email.trim() || !password || isSubmitting}
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  <UserPlus size={15} />
+                  <span>{isSubmitting ? 'Đang đăng ký...' : 'Tạo tài khoản mới'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* TAB 3: SQL SCHEMA GUIDE (FIX DB TABLES & PERMISSIONS) */}
+          {authTab === 'sql_guide' && (
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
+                darkMode ? 'bg-blue-950/20 border-blue-800/40 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
+              }`}>
+                <div className="font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <Terminal size={14} />
+                  <span>Cách khắc phục lỗi Người A tạo task nhưng Người B không thấy:</span>
+                </div>
+                <ol className="list-decimal list-inside space-y-1 text-[11px] opacity-90">
+                  <li>Mở <strong>Supabase Dashboard</strong> của dự án bạn.</li>
+                  <li>Chọn mục <strong>SQL Editor</strong> ở thanh menu bên trái.</li>
+                  <li>Bấm nút <strong>"Sao chép câu lệnh SQL"</strong> bên dưới rồi dán vào và nhấn <strong>Run</strong>.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#888]">Mã SQL tạo bảng & Mở quyền RLS (Public Policy):</span>
                   <button
-                    type="submit"
-                    disabled={!email.trim() || !password || isSubmitting}
-                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    type="button"
+                    onClick={handleCopySql}
+                    className="px-2.5 py-1 bg-[#2383e2] hover:bg-[#1b6ec2] text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
-                    <UserPlus size={15} />
-                    <span>{isSubmitting ? 'Đang đăng ký...' : 'Tạo tài khoản mới'}</span>
+                    {copiedSql ? <Check size={12} /> : <Copy size={12} />}
+                    <span>{copiedSql ? 'Đã sao chép!' : 'Sao chép SQL'}</span>
                   </button>
                 </div>
-              </form>
-            )}
-          </div>
-        )}
+
+                <div className={`p-3 rounded-xl border font-mono text-[10.5px] leading-relaxed overflow-x-auto select-all max-h-56 ${
+                  darkMode ? 'bg-[#151515] border-[#333] text-emerald-400' : 'bg-[#f4f3f0] border-[#ddd] text-emerald-800'
+                }`}>
+                  <pre className="whitespace-pre">{SUPABASE_INIT_SQL}</pre>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
