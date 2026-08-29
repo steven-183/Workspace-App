@@ -343,29 +343,33 @@ export default function App() {
       }
     });
 
-    // 4. Realtime subscription for tasks, projects, and broadcast notifications
+    // 4. Realtime subscription with debounced refetch for tasks, projects, and broadcast notifications
+    let refetchTimer: any = null;
+    const scheduleDebouncedRefetch = () => {
+      if (refetchTimer) clearTimeout(refetchTimer);
+      refetchTimer = setTimeout(() => {
+        fetchAllProjectsFromSupabase().then((remoteProjects) => {
+          if (remoteProjects && remoteProjects.length > 0) {
+            setProjects((prev) => mergeProjectsWithRemote(prev, remoteProjects));
+          }
+        });
+      }, 500);
+    };
+
     const realtimeChannel = supabase
       .channel('workspace_realtime_events')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
         () => {
-          fetchAllProjectsFromSupabase().then((remoteProjects) => {
-            if (remoteProjects && remoteProjects.length > 0) {
-              setProjects((prev) => mergeProjectsWithRemote(prev, remoteProjects));
-            }
-          });
+          scheduleDebouncedRefetch();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'projects' },
         () => {
-          fetchAllProjectsFromSupabase().then((remoteProjects) => {
-            if (remoteProjects && remoteProjects.length > 0) {
-              setProjects((prev) => mergeProjectsWithRemote(prev, remoteProjects));
-            }
-          });
+          scheduleDebouncedRefetch();
         }
       )
       .on(

@@ -208,21 +208,88 @@ export async function fetchProfilesFromSupabase(): Promise<User[]> {
   }
 }
 
+// Set of known unsupported columns for each table to avoid repeated PGRST204 retries
+const KNOWN_UNSUPPORTED_COLUMNS = new Map<string, Set<string>>();
+
+export function isValidUUID(str: string | null | undefined): boolean {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+}
+
+// Adaptive Upsert helper: dynamically strips non-existent columns if schema cache lacks them (PGRST204)
+// and caches missing column names so subsequent requests succeed instantly in a single roundtrip.
+export async function adaptiveUpsert(
+  supabase: any,
+  table: string,
+  data: Record<string, any>,
+  onConflict: string = 'id'
+): Promise<{ success: boolean; data?: any; error?: any }> {
+  if (!KNOWN_UNSUPPORTED_COLUMNS.has(table)) {
+    KNOWN_UNSUPPORTED_COLUMNS.set(table, new Set<string>());
+  }
+  const unsupported = KNOWN_UNSUPPORTED_COLUMNS.get(table)!;
+
+  // Clone payload and remove previously discovered missing columns
+  const currentPayload: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!unsupported.has(key)) {
+      currentPayload[key] = value;
+    }
+  }
+
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (attempts < maxAttempts) {
+    attempts++;
+    const { data: resData, error } = await supabase
+      .from(table)
+      .upsert(currentPayload, { onConflict });
+
+    if (!error) {
+      return { success: true, data: resData };
+    }
+
+    // Check for PostgREST PGRST204 missing column error
+    // e.g.: "Could not find the 'description' column of 'tasks' in the schema cache"
+    const missingColMatch = error.message?.match(/Could not find the '([^']+)' column/i);
+    if (missingColMatch && missingColMatch[1]) {
+      const colName = missingColMatch[1];
+      unsupported.add(colName);
+      console.warn(`[Supabase Adaptive] Cached missing column '${colName}' on '${table}'. Retrying...`);
+      delete currentPayload[colName];
+      continue;
+    }
+
+    // Check for Postgres column does not exist error
+    const pgColMatch = error.message?.match(/column "([^"]+)" of relation "[^"]+" does not exist/i);
+    if (pgColMatch && pgColMatch[1]) {
+      const colName = pgColMatch[1];
+      unsupported.add(colName);
+      console.warn(`[Supabase Adaptive] Cached missing column '${colName}' on '${table}'. Retrying...`);
+      delete currentPayload[colName];
+      continue;
+    }
+
+    // If foreign key constraint or other error, return failure
+    return { success: false, error };
+  }
+
+  return { success: false, error: new Error('Max adaptive upsert attempts reached') };
+}
+
 export async function upsertUserProfile(user: User): Promise<void> {
   const supabase = getSupabase();
   if (!supabase || !user || !user.id) return;
 
   try {
-    await supabase.from('profiles').upsert(
-      {
-        id: user.id,
-        full_name: user.name,
-        email: user.email || '',
-        avatar_url: user.avatar || '',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+    await adaptiveUpsert(supabase, 'profiles', {
+      id: user.id,
+      full_name: user.name,
+      email: user.email || '',
+      avatar_url: user.avatar || '',
+      updated_at: new Date().toISOString(),
+    });
   } catch (err) {
     // Ignore error if profiles table is not created yet
   }
@@ -336,7 +403,7 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
         category: row.category || 'Dự án',
         teamId: (row.team_id as TeamId) || derivedTeamId,
         isFavorite: row.is_favorite || false,
-        views: safeJsonParse(row.views, ['kanban', 'timeline', 'table', 'calendar', 'list']),
+        views: safeJsonParse(row.views, ['kanban', 'timeline', 'table', 'calendar']),
         activeView: row.active_view || 'kanban',
         columns: safeJsonParse(row.columns, []),
         createdAt: row.created_at || '',
@@ -357,43 +424,27 @@ export async function syncProjectToSupabase(project: ProjectPage): Promise<void>
 
   try {
     const { data: authData } = await supabase.auth.getUser();
-    const userId = authData?.user?.id || null;
+    const userId = authData?.user?.id;
 
-    const baseProjectPayload: any = {
-      id: project.id,
+    const projectPayload: any = {
+      id: String(project.id),
       title: project.title,
       icon: project.icon || '📋',
       description: project.description || '',
       category: project.category || 'Dự án',
-      is_favorite: project.isFavorite,
-      views: project.views || ['kanban', 'timeline', 'table', 'calendar', 'list'],
+      team_id: project.teamId || 'product',
+      is_favorite: Boolean(project.isFavorite),
+      views: project.views || ['kanban', 'timeline', 'table', 'calendar'],
       active_view: project.activeView || 'kanban',
       columns: project.columns || [],
     };
 
-    if (userId) {
-      baseProjectPayload.user_id = userId;
+    // Only attach user_id if it's a valid Postgres UUID format
+    if (isValidUUID(userId)) {
+      projectPayload.user_id = userId;
     }
 
-    // Attempt upsert with team_id
-    const fullProjectPayload = {
-      ...baseProjectPayload,
-      team_id: project.teamId || 'product',
-    };
-
-    const { error: projError } = await supabase.from('projects').upsert(fullProjectPayload, { onConflict: 'id' });
-    if (projError) {
-      console.warn('Supabase projects upsert full error, trying base fields:', projError.message);
-      // Fallback without team_id or user_id if column not found
-      await supabase.from('projects').upsert(baseProjectPayload, { onConflict: 'id' });
-    }
-
-    // Upsert all tasks in this project
-    if (project.tasks && project.tasks.length > 0) {
-      for (const t of project.tasks) {
-        await syncTaskToSupabase(project.id, t, project);
-      }
-    }
+    await adaptiveUpsert(supabase, 'projects', projectPayload);
   } catch (err) {
     console.error('Error syncing project to Supabase:', err);
   }
@@ -413,36 +464,9 @@ export async function deleteProjectFromSupabase(projectId: string, tasksToTrash?
 
     // If specific tasks were supplied, ensure their state is upserted
     if (tasksToTrash && tasksToTrash.length > 0) {
-      const taskRows = tasksToTrash.map((t) => ({
-        id: t.id,
-        project_id: projectId,
-        title: t.title || 'Không có tiêu đề',
-        description: t.description || '',
-        status: t.status,
-        priority: t.priority,
-        start_date: t.startDate ? t.startDate : null,
-        due_date: t.dueDate ? t.dueDate : null,
-        start_time: t.startTime || null,
-        due_time: t.dueTime || null,
-        progress: t.progress || 0,
-        order: t.order || 1,
-        assignees: t.assignees || [],
-        creator: t.creator || null,
-        followers: t.followers || [],
-        tags: t.tags || [],
-        subtasks: t.subtasks || [],
-        blocks: t.blocks || [],
-        comments: t.comments || [],
-        attachments: t.attachments || [],
-        activity_logs: t.activityLogs || [],
-        is_archived: Boolean(t.isArchived),
-        is_deleted: true,
-        deleted_at: t.deletedAt || now,
-        cover_image: t.coverImage || null,
-        icon: t.icon || null,
-        updated_at: now,
-      }));
-      await supabase.from('tasks').upsert(taskRows, { onConflict: 'id' });
+      for (const t of tasksToTrash) {
+        await syncTaskToSupabase(projectId, { ...t, isDeleted: true, deletedAt: now });
+      }
     }
 
     // Delete project from projects table
@@ -454,22 +478,30 @@ export async function deleteProjectFromSupabase(projectId: string, tasksToTrash?
 
 export async function syncTaskToSupabase(projectId: string, task: Task, projectInfo?: Partial<ProjectPage>): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase || !task) return;
 
   try {
+    const progressVal = typeof task.progress === 'number' && !isNaN(task.progress) 
+      ? Math.max(0, Math.min(100, Math.round(task.progress))) 
+      : 0;
+      
+    const orderVal = typeof task.order === 'number' && !isNaN(task.order)
+      ? Math.round(task.order)
+      : 1;
+
     const fullPayload: any = {
       id: String(task.id),
-      project_id: projectId,
+      project_id: String(projectId),
       title: task.title || 'Không có tiêu đề',
       description: task.description || '',
       status: task.status || 'todo',
       priority: task.priority || 'none',
-      start_date: task.startDate ? task.startDate : null,
-      due_date: task.dueDate ? task.dueDate : null,
+      start_date: task.startDate ? String(task.startDate) : null,
+      due_date: task.dueDate ? String(task.dueDate) : null,
       start_time: task.startTime || null,
       due_time: task.dueTime || null,
-      progress: typeof task.progress === 'number' ? task.progress : 0,
-      order: typeof task.order === 'number' ? task.order : 1,
+      progress: progressVal,
+      order: orderVal,
       assignees: task.assignees || [],
       creator: task.creator || null,
       followers: task.followers || [],
@@ -487,16 +519,15 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
       updated_at: new Date().toISOString(),
     };
 
-    // Attempt standard upsert
-    let { error } = await supabase.from('tasks').upsert(fullPayload, { onConflict: 'id' });
+    let result = await adaptiveUpsert(supabase, 'tasks', fullPayload);
 
-    if (error) {
-      console.warn('Supabase tasks upsert initial error:', error.message);
-
-      // If foreign key constraint on project_id or project row missing
-      if (error.code === '23503' || error.message?.includes('foreign key') || error.message?.includes('project_id') || error.message?.includes('projects')) {
-        await supabase.from('projects').upsert({
-          id: projectId,
+    // If foreign key constraint on project_id missing
+    if (!result.success && result.error) {
+      const err = result.error;
+      if (err.code === '23503' || err.message?.includes('foreign key') || err.message?.includes('project_id') || err.message?.includes('projects')) {
+        console.warn('Creating missing parent project in Supabase for task:', projectId);
+        await adaptiveUpsert(supabase, 'projects', {
+          id: String(projectId),
           title: projectInfo?.title || 'Bảng công việc',
           category: projectInfo?.category || 'Dự án',
           team_id: projectInfo?.teamId || 'product',
@@ -504,51 +535,21 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
           active_view: projectInfo?.activeView || 'kanban',
           columns: projectInfo?.columns || [],
           created_at: new Date().toISOString(),
-        }, { onConflict: 'id' });
+        });
 
-        const retry = await supabase.from('tasks').upsert(fullPayload, { onConflict: 'id' });
-        error = retry.error;
+        result = await adaptiveUpsert(supabase, 'tasks', fullPayload);
       }
+    }
 
-      // If failed due to extra columns (e.g. comments, attachments, activity_logs, start_time, due_time, cover_image, icon not in DB)
-      if (error) {
-        console.warn('Retrying tasks upsert with minimal core schema matching DB:', error.message);
-        const minimalPayload: any = {
-          id: String(task.id),
-          project_id: projectId,
-          title: task.title || 'Không có tiêu đề',
-          description: task.description || '',
-          status: task.status || 'todo',
-          priority: task.priority || 'none',
-          start_date: task.startDate ? task.startDate : null,
-          due_date: task.dueDate ? task.dueDate : null,
-          progress: typeof task.progress === 'number' ? task.progress : 0,
-          order: typeof task.order === 'number' ? task.order : 1,
-          assignees: task.assignees || [],
-          creator: task.creator || null,
-          followers: task.followers || [],
-          tags: task.tags || [],
-          subtasks: task.subtasks || [],
-          blocks: task.blocks || [],
-          is_archived: Boolean(task.isArchived),
-          is_deleted: Boolean(task.isDeleted),
-          updated_at: new Date().toISOString(),
-        };
-
-        const minRetry = await supabase.from('tasks').upsert(minimalPayload, { onConflict: 'id' });
-        if (minRetry.error) {
-          console.error('Final fallback task upsert error:', minRetry.error);
-        } else {
-          console.log('Task saved successfully with minimal schema fallback!');
-        }
-      }
+    if (!result.success) {
+      console.warn('Notice syncing task to Supabase:', result.error?.message);
     }
   } catch (err) {
     console.error('Error syncing task to Supabase:', err);
   }
 }
 
-// Smart merger for local and remote projects to prevent data loss on refresh
+// Smart pure merger for local and remote projects to prevent data loss on refresh
 export function mergeProjectsWithRemote(localProjects: ProjectPage[], remoteProjects: ProjectPage[]): ProjectPage[] {
   if (!remoteProjects || remoteProjects.length === 0) return localProjects || [];
   if (!localProjects || localProjects.length === 0) return remoteProjects;
@@ -562,9 +563,8 @@ export function mergeProjectsWithRemote(localProjects: ProjectPage[], remoteProj
   localProjects.forEach((lp) => {
     const rp = remoteMap.get(lp.id);
     if (!rp) {
-      // Exists locally only -> keep it and re-sync to remote
+      // Exists locally only -> preserve local project
       mergedProjects.push(lp);
-      syncProjectToSupabase(lp);
       return;
     }
 
@@ -577,9 +577,8 @@ export function mergeProjectsWithRemote(localProjects: ProjectPage[], remoteProj
     (lp.tasks || []).forEach((lt) => {
       const rt = taskMap.get(lt.id);
       if (!rt) {
-        // Task created locally that hasn't synced or was missing from remote
+        // Local task not yet reflected in remote fetch
         taskMap.set(lt.id, lt);
-        syncTaskToSupabase(lp.id, lt, lp);
       } else {
         // Both exist: pick the newer one
         const localTime = new Date(lt.updatedAt || lt.createdAt || 0).getTime();

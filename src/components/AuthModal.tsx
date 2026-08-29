@@ -38,7 +38,12 @@ interface AuthModalProps {
 
 type AuthTab = 'signin' | 'signup' | 'sql_guide';
 
-const SUPABASE_INIT_SQL = `-- 1. TẠO BẢNG PROFILES (Lưu hồ sơ thành viên)
+const SUPABASE_INIT_SQL = `-- ==========================================
+-- SCRIPT ĐỒNG BỘ 100% CƠ SỞ DỮ LIỆU SUPABASE
+-- (Chạy được an toàn cho cả Bảng Đã Có hoặc Bảng Mới)
+-- ==========================================
+
+-- 1. BẢNG PROFILES (Lưu hồ sơ thành viên)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id TEXT PRIMARY KEY,
   full_name TEXT,
@@ -47,7 +52,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 2. TẠO BẢNG PROJECTS (Lưu các bảng dự án)
+-- 2. BẢNG PROJECTS (Lưu các bảng dự án)
 CREATE TABLE IF NOT EXISTS public.projects (
   id TEXT PRIMARY KEY,
   user_id TEXT,
@@ -63,7 +68,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 3. TẠO BẢNG TASKS (Lưu công việc và phân công)
+-- 3. BẢNG TASKS (Lưu công việc và phân công)
 CREATE TABLE IF NOT EXISTS public.tasks (
   id TEXT PRIMARY KEY,
   project_id TEXT REFERENCES public.projects(id) ON DELETE CASCADE,
@@ -95,24 +100,42 @@ CREATE TABLE IF NOT EXISTS public.tasks (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
 );
 
--- 4. BẬT BẢNG REALTIME TRONG SUPABASE (Đồng bộ tức thì)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+-- 4. BỔ SUNG CỘT CÒN THIẾU NẾU BẢNG ĐÃ ĐƯỢC TẠO TỪ TRƯỚC
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS start_time TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS due_time TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS activity_logs JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS cover_image TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS icon TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS team_id TEXT DEFAULT 'product';
 
 -- 5. MỞ QUYỀN TRUY CẬP ĐỂ CẢ TEAM ĐỀU THẤY TASK CỦA NHAU
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Public Profiles Policy" ON public.profiles;
-CREATE POLICY "Public Profiles Policy" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public Projects Policy" ON public.projects;
-CREATE POLICY "Public Projects Policy" ON public.projects FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Public Tasks Policy" ON public.tasks;
-CREATE POLICY "Public Tasks Policy" ON public.tasks FOR ALL USING (true) WITH CHECK (true);`;
+-- 6. BẬT BẢNG REALTIME TRONG SUPABASE (Đồng bộ tức thì)
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
+  EXCEPTION WHEN duplicate_object THEN
+    NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
+  EXCEPTION WHEN duplicate_object THEN
+    NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  EXCEPTION WHEN duplicate_object THEN
+    NULL;
+  END;
+END $$;`;
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
