@@ -28,7 +28,8 @@ import {
   getCurrentSupabaseUser, 
   fetchProfilesFromSupabase,
   signOutSupabase, 
-  mapSupabaseUser 
+  mapSupabaseUser,
+  mergeProjectsWithRemote
 } from './lib/supabase';
 
 const STORAGE_KEY = 'notion_tasks_workspace_v1';
@@ -329,11 +330,15 @@ export default function App() {
     // 3. Fetch remote workspace data from Supabase
     fetchAllProjectsFromSupabase().then((remoteProjects) => {
       if (remoteProjects && remoteProjects.length > 0) {
-        setProjects(remoteProjects);
+        setProjects((prev) => mergeProjectsWithRemote(prev, remoteProjects));
       } else {
-        // If Supabase table is empty, seed with initial projects
-        INITIAL_PROJECTS.forEach((proj) => {
-          syncProjectToSupabase(proj);
+        // If Supabase table is empty, seed with current projects
+        setProjects((prev) => {
+          const toSeed = prev && prev.length > 0 ? prev : INITIAL_PROJECTS;
+          toSeed.forEach((proj) => {
+            syncProjectToSupabase(proj);
+          });
+          return toSeed;
         });
       }
     });
@@ -347,7 +352,7 @@ export default function App() {
         () => {
           fetchAllProjectsFromSupabase().then((remoteProjects) => {
             if (remoteProjects && remoteProjects.length > 0) {
-              setProjects(remoteProjects);
+              setProjects((prev) => mergeProjectsWithRemote(prev, remoteProjects));
             }
           });
         }
@@ -358,7 +363,7 @@ export default function App() {
         () => {
           fetchAllProjectsFromSupabase().then((remoteProjects) => {
             if (remoteProjects && remoteProjects.length > 0) {
-              setProjects(remoteProjects);
+              setProjects((prev) => mergeProjectsWithRemote(prev, remoteProjects));
             }
           });
         }
@@ -681,10 +686,12 @@ export default function App() {
     };
 
     const updatedTasks = [...(targetProject.tasks || []), newTask];
+    const updatedProject = { ...targetProject, tasks: updatedTasks };
     setProjects((prev) =>
-      prev.map((p) => (p.id === targetProject.id ? { ...p, tasks: updatedTasks } : p))
+      prev.map((p) => (p.id === targetProject.id ? updatedProject : p))
     );
-    syncTaskToSupabase(targetProject.id, newTask);
+    syncProjectToSupabase(updatedProject);
+    syncTaskToSupabase(targetProject.id, newTask, targetProject);
     setSelectedTaskProjectId(targetProject.id);
     setSelectedTask(newTask);
   };
@@ -714,18 +721,19 @@ export default function App() {
       updatedAt: today,
     };
 
+    const updatedTasks = [...(targetProj.tasks || []), newTask];
+    const updatedProject = { ...targetProj, tasks: updatedTasks };
     setProjects((prev) =>
-      prev.map((p) =>
-        p.id === targetProj.id ? { ...p, tasks: [...(p.tasks || []), newTask] } : p
-      )
+      prev.map((p) => (p.id === targetProj.id ? updatedProject : p))
     );
-    syncTaskToSupabase(targetProj.id, newTask);
+    syncProjectToSupabase(updatedProject);
+    syncTaskToSupabase(targetProj.id, newTask, targetProj);
     setSelectedTaskProjectId(targetProj.id);
     setSelectedTask(newTask);
   };
 
   const handleQuickAddTask = (status: StatusId, title: string) => {
-    const targetProject = projects.find((p) => p.id === activeProjectId) || activeProject;
+    const targetProject = projects.find((p) => p.id === activeProjectId && !p.isDeleted) || activeProject;
     const today = getTodayString();
     const colTasks = (targetProject.tasks || []).filter((t) => t.status === status);
     const newTask: Task = {
@@ -747,10 +755,12 @@ export default function App() {
     };
 
     const updatedTasks = [...(targetProject.tasks || []), newTask];
+    const updatedProject = { ...targetProject, tasks: updatedTasks };
     setProjects((prev) =>
-      prev.map((p) => (p.id === targetProject.id ? { ...p, tasks: updatedTasks } : p))
+      prev.map((p) => (p.id === targetProject.id ? updatedProject : p))
     );
-    syncTaskToSupabase(targetProject.id, newTask);
+    syncProjectToSupabase(updatedProject);
+    syncTaskToSupabase(targetProject.id, newTask, targetProject);
   };
 
   const handleUpdateTaskInProject = useCallback((projId: string, taskId: string, updates: Partial<Task>) => {
@@ -760,12 +770,13 @@ export default function App() {
         const updatedTasks = p.tasks.map((t) => {
           if (t.id === taskId) {
             const updated = { ...t, ...updates, updatedAt: getTodayString() };
-            syncTaskToSupabase(projId, updated);
+            syncTaskToSupabase(projId, updated, p);
             return updated;
           }
           return t;
         });
-        return { ...p, tasks: updatedTasks };
+        const updatedProj = { ...p, tasks: updatedTasks };
+        return updatedProj;
       })
     );
   }, []);

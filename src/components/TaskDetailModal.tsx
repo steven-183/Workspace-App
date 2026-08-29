@@ -90,10 +90,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   currentUser,
   availableUsers = [],
 }) => {
-  if (!isOpen || !task) return null;
-
   // Local draft state for task to allow explicit "Lưu" (Save) before committing to DB
-  const [draftTask, setDraftTask] = useState<Task>(() => ({ ...task }));
+  const [draftTask, setDraftTask] = useState<Task>(() => (task ? { ...task } : {
+    id: '',
+    title: '',
+    status: 'backlog',
+    priority: 'none',
+    tags: [],
+    subtasks: [],
+    comments: [],
+    activityLogs: [],
+    attachments: [],
+    createdAt: '',
+    updatedAt: '',
+  }));
   const [isDirty, setIsDirty] = useState(false);
   const [isSavedRecently, setIsSavedRecently] = useState(false);
   const [isFullWidth, setIsFullWidth] = useState(false);
@@ -118,11 +128,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   // Sync draft state whenever a different task is opened
   useEffect(() => {
-    setDraftTask({ ...task });
-    setIsDirty(false);
-    setIsSavedRecently(false);
-    setShowMoreMenu(false);
-  }, [task.id]);
+    if (task) {
+      setDraftTask({ ...task });
+      setIsDirty(false);
+      setIsSavedRecently(false);
+      setShowMoreMenu(false);
+    }
+  }, [task?.id]);
 
   // Click outside more menu
   useEffect(() => {
@@ -159,7 +171,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     color: '#2383e2',
   };
 
-  const column = project.columns.find((c) => c.id === draftTask.status);
+  const columnsList = project?.columns || [];
+  const column = columnsList.find((c) => c.id === draftTask.status);
   const colStyle = column ? NOTION_COLORS[column.color] : NOTION_COLORS.gray;
   const priority = PRIORITY_CONFIG[draftTask.priority] || PRIORITY_CONFIG.none;
   const overdue = isOverdue(draftTask.dueDate, draftTask.status);
@@ -173,6 +186,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   // Explicit Save to Database & Parent State
   const handleSaveToDatabase = () => {
+    if (!task) return;
     const finalDescription = draftTask.description || '';
     const finalBlocks = finalDescription 
       ? [{ id: 'b-main', type: 'paragraph' as const, content: finalDescription }] 
@@ -195,8 +209,59 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }, 2500);
   };
 
+  // Auto-sync draft changes to parent state and storage
+  useEffect(() => {
+    if (!isDirty || !task) return;
+
+    const timer = setTimeout(() => {
+      const finalDescription = draftTask.description || '';
+      const finalBlocks = finalDescription 
+        ? [{ id: 'b-main', type: 'paragraph' as const, content: finalDescription }] 
+        : [];
+
+      const payload: Task = {
+        ...draftTask,
+        title: draftTask.title.trim() || 'Công việc không tên',
+        description: finalDescription,
+        blocks: finalBlocks,
+        updatedAt: getTodayString(),
+      };
+
+      onUpdateTask(task.id, payload);
+      setIsDirty(false);
+      setIsSavedRecently(true);
+      setTimeout(() => {
+        setIsSavedRecently(false);
+      }, 2000);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [draftTask, isDirty, task?.id, onUpdateTask]);
+
+  // Safe close handler that always flushes pending draft edits
+  const handleClose = () => {
+    if (isDirty && task) {
+      const finalDescription = draftTask.description || '';
+      const finalBlocks = finalDescription 
+        ? [{ id: 'b-main', type: 'paragraph' as const, content: finalDescription }] 
+        : [];
+
+      const payload: Task = {
+        ...draftTask,
+        title: draftTask.title.trim() || 'Công việc không tên',
+        description: finalDescription,
+        blocks: finalBlocks,
+        updatedAt: getTodayString(),
+      };
+
+      onUpdateTask(task.id, payload);
+    }
+    onClose();
+  };
+
   // Helper to append activity log into draft
   const logActivityInDraft = (action: TaskActivityLog['action'], details: string, extraUpdates: Partial<Task> = {}) => {
+    if (!task) return;
     const newLog: TaskActivityLog = {
       id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       taskId: task.id,
@@ -445,6 +510,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   // Copy task link/id
   const handleCopyLink = () => {
+    if (!task) return;
     navigator.clipboard.writeText(`${window.location.origin}/#task-${task.id}`);
     setCopyToast(true);
     setShowMoreMenu(false);
@@ -463,11 +529,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     return <File size={18} className="text-gray-500 shrink-0" />;
   };
 
+  if (!isOpen || !task) return null;
+
   return (
     <>
       <div 
         className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" 
-        onClick={onClose}
+        onClick={handleClose}
       >
         <div
           onClick={(e) => e.stopPropagation()}
@@ -593,7 +661,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
               {/* Close Button */}
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className={`p-1.5 rounded-md transition-colors ${
                   darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]'
                 }`}

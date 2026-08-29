@@ -456,7 +456,7 @@ export async function deleteProjectFromSupabase(projectId: string, tasksToTrash?
   }
 }
 
-export async function syncTaskToSupabase(projectId: string, task: Task): Promise<void> {
+export async function syncTaskToSupabase(projectId: string, task: Task, projectInfo?: Partial<ProjectPage>): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
 
@@ -491,10 +491,89 @@ export async function syncTaskToSupabase(projectId: string, task: Task): Promise
       updated_at: new Date().toISOString(),
     };
 
-    await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
+    const { error } = await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
+    if (error) {
+      console.warn('Supabase tasks upsert error, attempting recovery:', error);
+      // If foreign key constraint on project_id or project row missing
+      if (error.code === '23503' || error.message?.includes('foreign key') || error.message?.includes('project_id') || error.message?.includes('projects')) {
+        await supabase.from('projects').upsert({
+          id: projectId,
+          title: projectInfo?.title || 'Bảng công việc',
+          category: projectInfo?.category || 'Dự án',
+          team_id: projectInfo?.teamId || 'product',
+          views: projectInfo?.views || ['kanban', 'timeline', 'table', 'calendar'],
+          active_view: projectInfo?.activeView || 'kanban',
+          columns: projectInfo?.columns || [],
+          created_at: new Date().toISOString(),
+        }, { onConflict: 'id' });
+
+        await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
+      }
+    }
   } catch (err) {
     console.error('Error syncing task to Supabase:', err);
   }
+}
+
+// Smart merger for local and remote projects to prevent data loss on refresh
+export function mergeProjectsWithRemote(localProjects: ProjectPage[], remoteProjects: ProjectPage[]): ProjectPage[] {
+  if (!remoteProjects || remoteProjects.length === 0) return localProjects || [];
+  if (!localProjects || localProjects.length === 0) return remoteProjects;
+
+  const remoteMap = new Map<string, ProjectPage>();
+  remoteProjects.forEach((rp) => remoteMap.set(rp.id, rp));
+
+  const mergedProjects: ProjectPage[] = [];
+
+  // 1. Process all local projects
+  localProjects.forEach((lp) => {
+    const rp = remoteMap.get(lp.id);
+    if (!rp) {
+      // Exists locally only -> keep it and re-sync to remote
+      mergedProjects.push(lp);
+      syncProjectToSupabase(lp);
+      return;
+    }
+
+    // Exists in both: merge tasks safely
+    const taskMap = new Map<string, Task>();
+    // Add remote tasks
+    (rp.tasks || []).forEach((t) => taskMap.set(t.id, t));
+
+    // Overlay local tasks (keep any local task that doesn't exist in remote or has newer updates)
+    (lp.tasks || []).forEach((lt) => {
+      const rt = taskMap.get(lt.id);
+      if (!rt) {
+        // Task created locally that hasn't synced or was missing from remote
+        taskMap.set(lt.id, lt);
+        syncTaskToSupabase(lp.id, lt, lp);
+      } else {
+        // Both exist: pick the newer one
+        const localTime = new Date(lt.updatedAt || lt.createdAt || 0).getTime();
+        const remoteTime = new Date(rt.updatedAt || rt.createdAt || 0).getTime();
+        if (localTime >= remoteTime) {
+          taskMap.set(lt.id, lt);
+        }
+      }
+    });
+
+    mergedProjects.push({
+      ...rp,
+      teamId: lp.teamId || rp.teamId,
+      category: lp.category || rp.category,
+      isDeleted: lp.isDeleted !== undefined ? lp.isDeleted : rp.isDeleted,
+      tasks: Array.from(taskMap.values()),
+    });
+
+    remoteMap.delete(lp.id);
+  });
+
+  // 2. Add any remaining remote projects that weren't in local
+  remoteMap.forEach((rp) => {
+    mergedProjects.push(rp);
+  });
+
+  return mergedProjects;
 }
 
 export async function deleteTaskFromSupabase(taskId: string): Promise<void> {
