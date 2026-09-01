@@ -24,7 +24,7 @@ import {
   isOverdue 
 } from '../utils/dateUtils';
 import { SAMPLE_TAGS } from '../data/initialData';
-import { dispatchTaskEvent } from '../utils/notificationService';
+import { dispatchTaskEvent, triggerToast } from '../utils/notificationService';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import { 
   X, 
@@ -67,8 +67,9 @@ interface TaskDetailModalProps {
   task: Task | null;
   project: ProjectPage;
   isOpen: boolean;
+  isNewTask?: boolean;
   onClose: () => void;
-  onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  onUpdateTask: (taskId: string, updates: Partial<Task>, isNew?: boolean) => void;
   onDeleteTask: (taskId: string) => void;
   onArchiveTask?: (taskId: string) => void;
   onUnarchiveTask?: (taskId: string) => void;
@@ -81,6 +82,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   task,
   project,
   isOpen,
+  isNewTask = false,
   onClose,
   onUpdateTask,
   onDeleteTask,
@@ -184,7 +186,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setIsSavedRecently(false);
   };
 
-  // Explicit Save to Database & Parent State
+  // Explicit Save to Database & Parent State (ONLY when user clicks Save)
   const handleSaveToDatabase = () => {
     if (!task) return;
     const finalDescription = draftTask.description || '';
@@ -192,70 +194,35 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       ? [{ id: 'b-main', type: 'paragraph' as const, content: finalDescription }] 
       : [];
 
+    const finalTitle = draftTask.title.trim() || (isNewTask ? 'Công việc mới' : 'Công việc không tên');
+
     const payload: Task = {
       ...draftTask,
-      title: draftTask.title.trim() || 'Công việc không tên',
+      title: finalTitle,
       description: finalDescription,
       blocks: finalBlocks,
       updatedAt: getTodayString(),
     };
 
-    onUpdateTask(task.id, payload);
+    // Save to parent state and Supabase DB
+    onUpdateTask(task.id, payload, isNewTask);
     setIsDirty(false);
     setIsSavedRecently(true);
+
+    // Trigger toast notification "Đã lưu"
+    triggerToast({
+      title: 'Đã lưu',
+      message: `Công việc "${finalTitle}" đã được lưu thành công vào cơ sở dữ liệu.`,
+      type: 'property_change',
+    });
 
     setTimeout(() => {
       setIsSavedRecently(false);
     }, 2500);
   };
 
-  // Auto-sync draft changes to parent state and storage
-  useEffect(() => {
-    if (!isDirty || !task) return;
-
-    const timer = setTimeout(() => {
-      const finalDescription = draftTask.description || '';
-      const finalBlocks = finalDescription 
-        ? [{ id: 'b-main', type: 'paragraph' as const, content: finalDescription }] 
-        : [];
-
-      const payload: Task = {
-        ...draftTask,
-        title: draftTask.title.trim() || 'Công việc không tên',
-        description: finalDescription,
-        blocks: finalBlocks,
-        updatedAt: getTodayString(),
-      };
-
-      onUpdateTask(task.id, payload);
-      setIsDirty(false);
-      setIsSavedRecently(true);
-      setTimeout(() => {
-        setIsSavedRecently(false);
-      }, 2000);
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [draftTask, isDirty, task?.id, onUpdateTask]);
-
-  // Safe close handler that always flushes pending draft edits
+  // Close handler: Discards unsaved draft changes and closes modal cleanly without auto-saving
   const handleClose = () => {
-    if (isDirty && task) {
-      const finalDescription = draftTask.description || '';
-      const finalBlocks = finalDescription 
-        ? [{ id: 'b-main', type: 'paragraph' as const, content: finalDescription }] 
-        : [];
-
-      const payload: Task = {
-        ...draftTask,
-        title: draftTask.title.trim() || 'Công việc không tên',
-        description: finalDescription,
-        blocks: finalBlocks,
-        updatedAt: getTodayString(),
-      };
-
-      onUpdateTask(task.id, payload);
-    }
     onClose();
   };
 
@@ -575,12 +542,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 {isSavedRecently ? (
                   <>
                     <Check size={14} strokeWidth={2.5} />
-                    <span>Đã lưu vào DB</span>
+                    <span>Đã lưu</span>
                   </>
                 ) : (
                   <>
                     <Save size={14} strokeWidth={2} />
-                    <span>Lưu</span>
+                    <span>{isNewTask ? 'Tạo task' : 'Lưu'}</span>
                     {isDirty && (
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
                     )}

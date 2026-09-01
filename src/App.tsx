@@ -183,6 +183,7 @@ export default function App() {
   // Modals & Active task
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedTaskProjectId, setSelectedTaskProjectId] = useState<string | null>(null);
+  const [isCreatingNewTask, setIsCreatingNewTask] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showQuickSearch, setShowQuickSearch] = useState(false);
   const [showTrashArchiveModal, setShowTrashArchiveModal] = useState(false);
@@ -673,7 +674,7 @@ export default function App() {
 
     const newTask: Task = {
       id: `task-${Date.now()}`,
-      title: 'Công việc mới',
+      title: '',
       status: defaultStatus,
       priority: 'medium',
       startDate: initialStart || today,
@@ -689,13 +690,8 @@ export default function App() {
       updatedAt: today,
     };
 
-    const updatedTasks = [...(targetProject.tasks || []), newTask];
-    const updatedProject = { ...targetProject, tasks: updatedTasks };
-    setProjects((prev) =>
-      prev.map((p) => (p.id === targetProject.id ? updatedProject : p))
-    );
-    syncProjectToSupabase(updatedProject);
-    syncTaskToSupabase(targetProject.id, newTask, targetProject);
+    // Open modal with draft new task without saving to DB yet
+    setIsCreatingNewTask(true);
     setSelectedTaskProjectId(targetProject.id);
     setSelectedTask(newTask);
   };
@@ -709,7 +705,7 @@ export default function App() {
 
     const newTask: Task = {
       id: `task-${Date.now()}`,
-      title: 'Việc mới được giao cho tôi',
+      title: '',
       status: defaultStatus,
       priority: 'high',
       startDate: today,
@@ -725,13 +721,8 @@ export default function App() {
       updatedAt: today,
     };
 
-    const updatedTasks = [...(targetProj.tasks || []), newTask];
-    const updatedProject = { ...targetProj, tasks: updatedTasks };
-    setProjects((prev) =>
-      prev.map((p) => (p.id === targetProj.id ? updatedProject : p))
-    );
-    syncProjectToSupabase(updatedProject);
-    syncTaskToSupabase(targetProj.id, newTask, targetProj);
+    // Open modal with draft new task without saving to DB yet
+    setIsCreatingNewTask(true);
     setSelectedTaskProjectId(targetProj.id);
     setSelectedTask(newTask);
   };
@@ -767,27 +758,37 @@ export default function App() {
     syncTaskToSupabase(targetProject.id, newTask, targetProject);
   };
 
-  const handleUpdateTaskInProject = useCallback((projId: string, taskId: string, updates: Partial<Task>) => {
+  const handleUpdateTaskInProject = useCallback((projId: string, taskId: string, updates: Partial<Task>, isNew?: boolean) => {
     setProjects((prev) => 
       prev.map((p) => {
         if (p.id !== projId) return p;
-        const updatedTasks = p.tasks.map((t) => {
-          if (t.id === taskId) {
-            const updated = { ...t, ...updates, updatedAt: getTodayString() };
-            syncTaskToSupabase(projId, updated, p);
-            return updated;
-          }
-          return t;
-        });
+        const exists = p.tasks.some((t) => t.id === taskId);
+        let updatedTasks: Task[];
+        if (isNew || !exists) {
+          const finalTask = { ...updates, id: taskId, updatedAt: getTodayString() } as Task;
+          updatedTasks = [...p.tasks, finalTask];
+          syncTaskToSupabase(projId, finalTask, p);
+        } else {
+          updatedTasks = p.tasks.map((t) => {
+            if (t.id === taskId) {
+              const updated = { ...t, ...updates, updatedAt: getTodayString() };
+              syncTaskToSupabase(projId, updated, p);
+              return updated;
+            }
+            return t;
+          });
+        }
         const updatedProj = { ...p, tasks: updatedTasks };
+        syncProjectToSupabase(updatedProj);
         return updatedProj;
       })
     );
+    setIsCreatingNewTask(false);
   }, []);
 
-  const handleUpdateTask = useCallback((taskId: string, updates: Partial<Task>) => {
+  const handleUpdateTask = useCallback((taskId: string, updates: Partial<Task>, isNew?: boolean) => {
     const targetProjId = selectedTaskProjectId || activeProjectId;
-    handleUpdateTaskInProject(targetProjId, taskId, updates);
+    handleUpdateTaskInProject(targetProjId, taskId, updates, isNew);
   }, [selectedTaskProjectId, activeProjectId, handleUpdateTaskInProject]);
 
   // Soft delete task (Move to Trash)
@@ -1294,9 +1295,11 @@ export default function App() {
         task={selectedTask}
         project={modalProject}
         isOpen={!!selectedTask && !!currentUser}
+        isNewTask={isCreatingNewTask}
         onClose={() => {
           setSelectedTask(null);
           setSelectedTaskProjectId(null);
+          setIsCreatingNewTask(false);
         }}
         onUpdateTask={handleUpdateTask}
         onDeleteTask={handleSoftDeleteTask}
