@@ -469,15 +469,73 @@ export default function App() {
     }
   }, [appTheme, darkMode]);
 
+  // Ensure personal project board exists for the currently logged in user
+  // "Bảng này chỉ chủ tài khoản đang đăng nhập nhìn thấy bảng của mình"
+  useEffect(() => {
+    if (!currentUser) return;
+    const personalId = `personal-board-${currentUser.id}`;
+    setProjects((prev) => {
+      const exists = prev.some(
+        (p) => p.id === personalId || (p.isPersonal && (p.ownerId === currentUser.id || p.ownerId === currentUser.email))
+      );
+      if (exists) return prev;
+
+      const newPersonalBoard: ProjectPage = {
+        id: personalId,
+        title: 'Task cá nhân',
+        icon: '👤',
+        description: `Không gian quản lý công việc cá nhân của ${currentUser.name}`,
+        category: 'Cá nhân',
+        isPersonal: true,
+        ownerId: currentUser.id,
+        tasks: [],
+        columns: [
+          { id: 'todo', title: 'Cần làm', color: 'blue', icon: 'Square' },
+          { id: 'in_progress', title: 'Đang làm', color: 'orange', icon: 'Clock' },
+          { id: 'in_review', title: 'Chờ review', color: 'purple', icon: 'Eye' },
+          { id: 'done', title: 'Hoàn thành', color: 'green', icon: 'CheckCircle2' },
+        ],
+        views: ['kanban', 'timeline', 'table', 'calendar'],
+        activeView: 'kanban',
+        createdAt: getTodayString(),
+      };
+
+      syncProjectToSupabase(newPersonalBoard);
+      return [newPersonalBoard, ...prev];
+    });
+  }, [currentUser?.id, currentUser?.email]);
+
+  // Compute visible projects based on logged in user:
+  // Non-personal projects are shared. Personal project is strictly visible only to its owner.
+  const visibleProjects = useMemo(() => {
+    return projects.filter((p) => {
+      if (p.isDeleted) return false;
+      const isPersonal = Boolean(
+        p.isPersonal ||
+        p.category === 'Cá nhân' ||
+        p.id.startsWith('personal-') ||
+        p.title.toLowerCase() === 'task cá nhân'
+      );
+      if (!isPersonal) return true;
+      if (!currentUser) return false;
+      return (
+        p.ownerId === currentUser.id ||
+        p.ownerId === currentUser.email ||
+        p.id === `personal-board-${currentUser.id}`
+      );
+    });
+  }, [projects, currentUser]);
+
   // Current active project
   const activeProject = useMemo(() => {
     return (
-      projects.find((p) => p.id === activeProjectId && !p.isDeleted) ||
-      projects.find((p) => !p.isDeleted) ||
+      visibleProjects.find((p) => p.id === activeProjectId && !p.isDeleted) ||
+      visibleProjects.find((p) => !p.isDeleted) ||
+      visibleProjects[0] ||
       projects[0] ||
       INITIAL_PROJECTS[0]
     );
-  }, [projects, activeProjectId]);
+  }, [visibleProjects, activeProjectId, projects]);
 
   // Modal project for TaskDetailModal (either active project or task's parent project)
   const modalProject = useMemo(() => {
@@ -489,7 +547,7 @@ export default function App() {
 
   // Keep selectedTask synchronized with projects state
   useEffect(() => {
-    if (selectedTask) {
+    if (selectedTask && !isCreatingNewTask) {
       const proj = projects.find((p) => p.id === (selectedTaskProjectId || activeProjectId));
       if (proj) {
         const updated = proj.tasks.find((t) => t.id === selectedTask.id);
@@ -498,7 +556,7 @@ export default function App() {
         }
       }
     }
-  }, [projects, selectedTaskProjectId, activeProjectId]);
+  }, [projects, selectedTaskProjectId, activeProjectId, isCreatingNewTask]);
 
   // Filtered and sorted tasks for current project (excluding deleted & archived)
   const filteredTasks = useMemo(() => {
@@ -697,7 +755,47 @@ export default function App() {
   };
 
   const handleAddNewTaskForCurrentUser = () => {
-    const targetProj = projects.find((p) => p.id === activeProjectId && !p.isDeleted) || activeProject;
+    // Target the personal board if logged in, otherwise current active project
+    let targetProj: ProjectPage | undefined;
+    if (currentUser) {
+      targetProj = projects.find(
+        (p) => !p.isDeleted && (
+          p.id === `personal-board-${currentUser.id}` || 
+          (p.isPersonal && (p.ownerId === currentUser.id || p.ownerId === currentUser.email)) ||
+          p.title.toLowerCase() === 'task cá nhân'
+        )
+      );
+    }
+
+    if (!targetProj && currentUser) {
+      const personalId = `personal-board-${currentUser.id}`;
+      targetProj = {
+        id: personalId,
+        title: 'Task cá nhân',
+        icon: '👤',
+        description: `Không gian quản lý công việc cá nhân của ${currentUser.name}`,
+        category: 'Cá nhân',
+        isPersonal: true,
+        ownerId: currentUser.id,
+        tasks: [],
+        columns: [
+          { id: 'todo', title: 'Cần làm', color: 'blue', icon: 'Square' },
+          { id: 'in_progress', title: 'Đang làm', color: 'orange', icon: 'Clock' },
+          { id: 'in_review', title: 'Chờ review', color: 'purple', icon: 'Eye' },
+          { id: 'done', title: 'Hoàn thành', color: 'green', icon: 'CheckCircle2' },
+        ],
+        views: ['kanban', 'timeline', 'table', 'calendar'],
+        activeView: 'kanban',
+        createdAt: getTodayString(),
+      };
+      setProjects((prev) => [targetProj!, ...prev]);
+      syncProjectToSupabase(targetProj);
+    }
+
+    if (!targetProj) {
+      targetProj = visibleProjects.find((p) => p.id === activeProjectId && !p.isDeleted) || activeProject;
+    }
+
     const today = getTodayString();
     const defaultStatus = (targetProj.columns && targetProj.columns.length > 0)
       ? targetProj.columns[0].id
@@ -711,6 +809,7 @@ export default function App() {
       startDate: today,
       dueDate: addDays(today, 2),
       assignees: currentUser ? [currentUser] : [],
+      creator: currentUser || undefined,
       tags: [],
       progress: 0,
       order: (targetProj.tasks || []).length + 1,
@@ -718,7 +817,7 @@ export default function App() {
       description: '',
       blocks: [],
       createdAt: today,
-      updatedAt: today,
+      updatedAt: new Date().toISOString(),
     };
 
     // Open modal with draft new task without saving to DB yet
@@ -759,19 +858,20 @@ export default function App() {
   };
 
   const handleUpdateTaskInProject = useCallback((projId: string, taskId: string, updates: Partial<Task>, isNew?: boolean) => {
+    const isoNow = new Date().toISOString();
     setProjects((prev) => 
       prev.map((p) => {
         if (p.id !== projId) return p;
         const exists = p.tasks.some((t) => t.id === taskId);
         let updatedTasks: Task[];
         if (isNew || !exists) {
-          const finalTask = { ...updates, id: taskId, updatedAt: getTodayString() } as Task;
+          const finalTask = { ...updates, id: taskId, updatedAt: isoNow } as Task;
           updatedTasks = [...p.tasks, finalTask];
           syncTaskToSupabase(projId, finalTask, p);
         } else {
           updatedTasks = p.tasks.map((t) => {
             if (t.id === taskId) {
-              const updated = { ...t, ...updates, updatedAt: getTodayString() };
+              const updated = { ...t, ...updates, updatedAt: isoNow };
               syncTaskToSupabase(projId, updated, p);
               return updated;
             }
@@ -783,6 +883,7 @@ export default function App() {
         return updatedProj;
       })
     );
+    setSelectedTask((prev) => (prev && prev.id === taskId ? { ...prev, ...updates, updatedAt: isoNow } as Task : prev));
     setIsCreatingNewTask(false);
   }, []);
 
@@ -1133,7 +1234,7 @@ export default function App() {
     }`}>
       {/* Notion Sidebar */}
       <Sidebar
-        projects={projects}
+        projects={visibleProjects}
         activeProjectId={activeProjectId}
         activeSection={activeSection}
         currentUser={currentUser}
@@ -1176,7 +1277,7 @@ export default function App() {
       <main className="flex-1 flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar relative">
         {activeSection === 'my_tasks' ? (
           <MyTasksView
-            projects={projects}
+            projects={visibleProjects}
             currentUser={currentUser}
             notifications={notifications}
             onOpenTask={handleOpenNotificationTask}
@@ -1195,6 +1296,7 @@ export default function App() {
             }}
             onOpenAuthModal={() => setShowAuthModal(true)}
             darkMode={darkMode}
+            appTheme={appTheme}
           />
         ) : (
           <>
@@ -1307,6 +1409,7 @@ export default function App() {
         onUnarchiveTask={(taskId) => handleUnarchiveTask(selectedTaskProjectId || activeProjectId, taskId)}
         availableUsers={allAvailableUsers}
         darkMode={darkMode}
+        appTheme={appTheme}
         currentUser={currentUser}
       />
 
@@ -1314,7 +1417,7 @@ export default function App() {
       <TrashArchiveModal
         isOpen={showTrashArchiveModal}
         onClose={() => setShowTrashArchiveModal(false)}
-        projects={projects}
+        projects={visibleProjects}
         activeProjectId={activeProjectId}
         initialTab={trashArchiveInitialTab}
         onRestoreTask={handleRestoreTask}
@@ -1347,7 +1450,7 @@ export default function App() {
       <QuickSearchModal
         isOpen={showQuickSearch && !!currentUser}
         onClose={() => setShowQuickSearch(false)}
-        projects={projects}
+        projects={visibleProjects}
         onSelectProject={(projId) => {
           setActiveProjectId(projId);
           setActiveSection('project');

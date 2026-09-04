@@ -10,7 +10,8 @@ import {
   TaskComment, 
   TaskAttachment,
   TaskActivityLog,
-  User 
+  User,
+  AppTheme 
 } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
 import { 
@@ -74,6 +75,7 @@ interface TaskDetailModalProps {
   onArchiveTask?: (taskId: string) => void;
   onUnarchiveTask?: (taskId: string) => void;
   darkMode: boolean;
+  appTheme?: AppTheme;
   currentUser?: User | null;
   availableUsers?: User[];
 }
@@ -89,9 +91,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onArchiveTask,
   onUnarchiveTask,
   darkMode,
+  appTheme = 'light',
   currentUser,
   availableUsers = [],
 }) => {
+  const isPink = appTheme === 'qanda_pink';
   // Local draft state for task to allow explicit "Lưu" (Save) before committing to DB
   const [draftTask, setDraftTask] = useState<Task>(() => (task ? { ...task } : {
     id: '',
@@ -201,10 +205,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       title: finalTitle,
       description: finalDescription,
       blocks: finalBlocks,
-      updatedAt: getTodayString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Save to parent state and Supabase DB
+    setDraftTask(payload);
     onUpdateTask(task.id, payload, isNewTask);
     setIsDirty(false);
     setIsSavedRecently(true);
@@ -508,16 +513,22 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           onClick={(e) => e.stopPropagation()}
           className={`h-full flex flex-col overflow-hidden shadow-2xl border-l transition-all duration-300 ${
             isFullWidth ? 'w-full max-w-5xl mx-auto rounded-none' : 'w-full max-w-2xl'
-          } ${darkMode ? 'bg-[#1e1e1e] border-[#313131] text-[#dedede]' : 'bg-white border-[#e3e2e0] text-[#37352f]'}`}
+          } ${
+            isPink
+              ? 'bg-[#fff8f9] border-[#fecdd3] text-[#4c0519]'
+              : darkMode ? 'bg-[#1e1e1e] border-[#313131] text-[#dedede]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+          }`}
         >
           {/* Top Action Bar */}
           <div className={`p-3 border-b flex items-center justify-between shrink-0 ${
-            darkMode ? 'border-[#2f2f2f] bg-[#1a1a1a]' : 'border-[#ededeb] bg-[#fbfbfa]'
+            isPink
+              ? 'border-[#fecdd3] bg-[#fff0f3]'
+              : darkMode ? 'border-[#2f2f2f] bg-[#1a1a1a]' : 'border-[#ededeb] bg-[#fbfbfa]'
           }`}>
-            <div className="flex items-center gap-1.5 text-xs text-[#9b9a97] truncate max-w-[40%]">
+            <div className={`flex items-center gap-1.5 text-xs truncate max-w-[40%] ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
               <span className="truncate">{project.title}</span>
               <span>/</span>
-              <span className="font-semibold text-[#5a5a58] dark:text-[#ccc]">Chi tiết công việc</span>
+              <span className={`font-semibold ${isPink ? 'text-[#4c0519]' : 'text-[#5a5a58] dark:text-[#ccc]'}`}>Chi tiết công việc</span>
               {draftTask.isArchived && (
                 <span className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1">
                   <Archive size={10} /> Đã lưu trữ
@@ -534,8 +545,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   isSavedRecently
                     ? 'bg-emerald-600 text-white'
                     : isDirty
-                    ? 'bg-[#2383e2] hover:bg-[#1d6ec0] text-white ring-2 ring-blue-400/30'
-                    : 'bg-emerald-600/90 hover:bg-emerald-600 text-white'
+                    ? (isPink ? 'bg-[#e11d48] hover:bg-[#be123c] text-white ring-2 ring-rose-400/40' : 'bg-[#2383e2] hover:bg-[#1d6ec0] text-white ring-2 ring-blue-400/30')
+                    : (isPink ? 'bg-[#be123c] hover:bg-[#9f1239] text-white' : 'bg-emerald-600/90 hover:bg-emerald-600 text-white')
                 }`}
                 title="Xác nhận lưu thay đổi vào cơ sở dữ liệu"
               >
@@ -562,8 +573,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   onClick={() => setShowMoreMenu(!showMoreMenu)}
                   className={`p-1.5 rounded-lg border transition-colors ${
                     showMoreMenu
-                      ? (darkMode ? 'bg-[#333] border-[#444] text-white' : 'bg-[#e8e7e4] border-[#ccc] text-black')
-                      : (darkMode ? 'border-[#333] text-[#aaa] hover:text-white hover:bg-[#2c2c2c]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#efedea]')
+                      ? (isPink ? 'bg-[#ffe4e6] border-[#fecdd3] text-[#4c0519]' : darkMode ? 'bg-[#333] border-[#444] text-white' : 'bg-[#e8e7e4] border-[#ccc] text-black')
+                      : (isPink ? 'border-[#fecdd3] text-[#881337] hover:text-[#4c0519] hover:bg-[#ffe4e6]' : darkMode ? 'border-[#333] text-[#aaa] hover:text-white hover:bg-[#2c2c2c]' : 'border-[#e3e2e0] text-[#787774] hover:text-[#37352f] hover:bg-[#efedea]')
                   }`}
                   title="Chức năng chi tiết khác"
                 >
@@ -572,7 +583,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                 {showMoreMenu && (
                   <div className={`absolute right-0 top-full mt-1.5 w-52 rounded-xl shadow-xl border p-1 z-50 text-xs ${
-                    darkMode ? 'bg-[#242424] border-[#383838] text-[#ddd]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+                    isPink ? 'bg-[#fff8f9] border-[#fecdd3] text-[#4c0519]' : darkMode ? 'bg-[#242424] border-[#383838] text-[#ddd]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
                   }`}>
                     {/* Toggle Archive */}
                     <button
@@ -617,20 +628,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               <button
                 onClick={() => setIsFullWidth(!isFullWidth)}
                 className={`p-1.5 rounded-md transition-colors ${
-                  darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]'
+                  isPink ? 'hover:bg-[#ffe4e6] text-[#881337]' : darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]'
                 }`}
                 title={isFullWidth ? 'Thu nhỏ' : 'Mở rộng'}
               >
                 {isFullWidth ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               </button>
 
-              <div className={`w-[1px] h-4 mx-0.5 ${darkMode ? 'bg-[#333]' : 'bg-[#e3e2e0]'}`} />
+              <div className={`w-[1px] h-4 mx-0.5 ${isPink ? 'bg-[#fecdd3]' : darkMode ? 'bg-[#333]' : 'bg-[#e3e2e0]'}`} />
 
               {/* Close Button */}
               <button
                 onClick={handleClose}
                 className={`p-1.5 rounded-md transition-colors ${
-                  darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]'
+                  isPink ? 'hover:bg-[#ffe4e6] text-[#881337]' : darkMode ? 'hover:bg-[#2c2c2c] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]'
                 }`}
                 title="Đóng cửa sổ"
               >
@@ -656,17 +667,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 value={draftTask.title}
                 onChange={(e) => updateDraft({ title: e.target.value })}
                 placeholder="Tên công việc..."
-                className={`text-xl sm:text-2xl font-bold w-full bg-transparent outline-none placeholder-[#9b9a97] ${
-                  darkMode ? 'text-white' : 'text-[#37352f]'
+                className={`text-xl sm:text-2xl font-bold w-full bg-transparent outline-none ${
+                  isPink ? 'text-[#4c0519] placeholder-[#9f1239]/50' : darkMode ? 'text-white placeholder-[#9b9a97]' : 'text-[#37352f] placeholder-[#9b9a97]'
                 }`}
               />
             </div>
 
             {/* Properties Table */}
-            <div className="space-y-3 text-xs border-y py-4 border-[#f1f1ef] dark:border-[#2b2b2b]">
+            <div className={`space-y-3 text-xs border-y py-4 ${
+              isPink ? 'border-[#fecdd3]' : 'border-[#f1f1ef] dark:border-[#2b2b2b]'
+            }`}>
               {/* Status Property */}
               <div className="grid grid-cols-3 items-center gap-2">
-                <div className="flex items-center gap-2 text-[#9b9a97]">
+                <div className={`flex items-center gap-2 ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
                   <Clock size={14} />
                   <span>Trạng thái</span>
                 </div>
@@ -687,7 +700,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
               {/* Priority Property */}
               <div className="grid grid-cols-3 items-center gap-2">
-                <div className="flex items-center gap-2 text-[#9b9a97]">
+                <div className={`flex items-center gap-2 ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
                   <AlertCircle size={14} />
                   <span>Mức độ ưu tiên</span>
                 </div>
@@ -708,7 +721,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
               {/* Dates & Times */}
               <div className="grid grid-cols-3 items-start gap-2 pt-1">
-                <div className="flex items-center gap-2 text-[#9b9a97] pt-1">
+                <div className={`flex items-center gap-2 pt-1 ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
                   <Calendar size={14} />
                   <span>Thời hạn & Giờ</span>
                 </div>
@@ -716,19 +729,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   {/* Date pickers */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-[#9b9a97]">Từ:</span>
+                      <span className={`text-[10px] ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}>Từ:</span>
                       <input
                         type="date"
                         value={draftTask.startDate || ''}
                         onChange={(e) => handleStartDateChange(e.target.value)}
                         className={`text-xs px-2 py-1 rounded-md border outline-none ${
-                          darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
+                          isPink
+                            ? 'bg-[#fff0f3] border-[#fecdd3] text-[#4c0519]'
+                            : darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
                         }`}
                       />
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-[#9b9a97]">Đến:</span>
+                      <span className={`text-[10px] ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}>Đến:</span>
                       <input
                         type="date"
                         value={draftTask.dueDate || ''}
@@ -736,6 +751,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         className={`text-xs px-2 py-1 rounded-md border outline-none ${
                           overdue
                             ? 'bg-red-50 border-red-300 text-red-600'
+                            : isPink
+                            ? 'bg-[#fff0f3] border-[#fecdd3] text-[#4c0519]'
                             : darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-[#f7f6f3] border-[#e3e2e0]'
                         }`}
                       />
@@ -1041,11 +1058,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             {/* Subtasks Section */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#9b9a97] flex items-center gap-1.5">
+                <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}>
                   <CheckSquare size={14} />
                   <span>Danh sách việc con (Subtasks)</span>
                 </h3>
-                <span className="text-xs font-mono text-[#9b9a97]">
+                <span className={`text-xs font-mono ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
                   {(draftTask.subtasks || []).filter((s) => s.completed).length}/{(draftTask.subtasks || []).length} hoàn thành
                 </span>
               </div>
@@ -1055,7 +1072,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   <div
                     key={st.id}
                     className={`flex items-center justify-between p-2 rounded-lg border group transition-colors ${
-                      darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
+                      isPink
+                        ? 'bg-[#fff0f3] border-[#fecdd3]'
+                        : darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 flex-1">
@@ -1063,9 +1082,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         type="checkbox"
                         checked={st.completed}
                         onChange={() => handleToggleSubtask(st.id)}
-                        className="w-4 h-4 rounded accent-[#2383e2] cursor-pointer"
+                        className={`w-4 h-4 rounded cursor-pointer ${isPink ? 'accent-[#e11d48]' : 'accent-[#2383e2]'}`}
                       />
-                      <span className={`text-xs ${st.completed ? 'line-through text-[#9b9a97]' : ''}`}>
+                      <span className={`text-xs ${st.completed ? (isPink ? 'line-through text-[#9f1239]/60' : 'line-through text-[#9b9a97]') : (isPink ? 'text-[#4c0519]' : '')}`}>
                         {st.text}
                       </span>
                     </div>
@@ -1101,13 +1120,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       }
                     }}
                     className={`flex-1 text-xs px-3 py-2 border rounded-lg outline-none ${
-                      darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-white border-[#e3e2e0]'
+                      isPink
+                        ? 'bg-[#fff5f6] border-[#fecdd3] text-[#4c0519] placeholder-[#9f1239]/50'
+                        : darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-white border-[#e3e2e0]'
                     }`}
                   />
                   <button
                     type="submit"
                     disabled={!newSubtaskText.trim()}
-                    className="px-3 py-2 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-semibold rounded-lg disabled:opacity-40"
+                    className={`px-3 py-2 text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-colors ${
+                      isPink ? 'bg-[#e11d48] hover:bg-[#be123c]' : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
+                    }`}
                   >
                     Thêm
                   </button>
@@ -1118,17 +1141,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             {/* Notes / Description Section - FULL DISPLAY (No fixed 5-line scrolling box) */}
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#9b9a97] flex items-center gap-1.5">
+                <h3 className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}>
                   <AlignLeft size={14} />
                   <span>Nội dung ghi chú</span>
                 </h3>
-                <span className="text-[11px] text-[#9b9a97]">
+                <span className={`text-[11px] ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
                   {(draftTask.description || '').length} ký tự
                 </span>
               </div>
 
-              <div className={`rounded-xl border transition-all focus-within:ring-2 focus-within:ring-[#2383e2] ${
-                darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fdfdfc] border-[#e8e7e4]'
+              <div className={`rounded-xl border transition-all ${
+                isPink
+                  ? 'bg-[#fff5f6] border-[#fecdd3] focus-within:ring-2 focus-within:ring-[#e11d48]'
+                  : darkMode ? 'bg-[#242424] border-[#313131] focus-within:ring-2 focus-within:ring-[#2383e2]' : 'bg-[#fdfdfc] border-[#e8e7e4] focus-within:ring-2 focus-within:ring-[#2383e2]'
               }`}>
                 <textarea
                   ref={descTextareaRef}
@@ -1139,22 +1164,30 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   }}
                   placeholder="Nhập nội dung ghi chú, tóm tắt hoặc yêu cầu chi tiết cho công việc này... (Hiển thị đầy đủ mọi dòng)"
                   className={`w-full text-xs p-3.5 bg-transparent outline-none resize-none leading-relaxed font-sans min-h-[130px] ${
-                    darkMode ? 'text-[#dedede] placeholder-[#666]' : 'text-[#37352f] placeholder-[#9b9a97]'
+                    isPink
+                      ? 'text-[#4c0519] placeholder-[#9f1239]/60'
+                      : darkMode ? 'text-[#dedede] placeholder-[#666]' : 'text-[#37352f] placeholder-[#9b9a97]'
                   }`}
                 />
               </div>
             </div>
 
             {/* Tabs: Comments vs Activity Log vs File Attachments */}
-            <div className="border-t pt-5 space-y-4 border-[#f1f1ef] dark:border-[#2b2b2b]">
-              <div className="flex items-center justify-between border-b pb-2 border-[#f1f1ef] dark:border-[#2b2b2b] flex-wrap gap-2">
-                <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-xl">
+            <div className={`border-t pt-5 space-y-4 ${
+              isPink ? 'border-[#fecdd3]' : 'border-[#f1f1ef] dark:border-[#2b2b2b]'
+            }`}>
+              <div className={`flex items-center justify-between border-b pb-2 flex-wrap gap-2 ${
+                isPink ? 'border-[#fecdd3]' : 'border-[#f1f1ef] dark:border-[#2b2b2b]'
+              }`}>
+                <div className={`flex items-center gap-1 p-1 rounded-xl ${
+                  isPink ? 'bg-[#ffe4e6]' : 'bg-black/5 dark:bg-white/5'
+                }`}>
                   <button
                     onClick={() => setActiveTab('comments')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       activeTab === 'comments'
-                        ? (darkMode ? 'bg-[#333] text-white shadow-xs' : 'bg-white text-[#37352f] shadow-xs')
-                        : 'text-[#9b9a97] hover:text-[#37352f] dark:hover:text-white'
+                        ? (isPink ? 'bg-white text-[#9f1239] shadow-xs font-bold' : darkMode ? 'bg-[#333] text-white shadow-xs' : 'bg-white text-[#37352f] shadow-xs')
+                        : (isPink ? 'text-[#881337] hover:text-[#4c0519]' : 'text-[#9b9a97] hover:text-[#37352f] dark:hover:text-white')
                     }`}
                   >
                     <MessageSquare size={13} />
@@ -1165,8 +1198,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     onClick={() => setActiveTab('attachments')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       activeTab === 'attachments'
-                        ? (darkMode ? 'bg-[#333] text-white shadow-xs' : 'bg-white text-[#37352f] shadow-xs')
-                        : 'text-[#9b9a97] hover:text-[#37352f] dark:hover:text-white'
+                        ? (isPink ? 'bg-white text-[#9f1239] shadow-xs font-bold' : darkMode ? 'bg-[#333] text-white shadow-xs' : 'bg-white text-[#37352f] shadow-xs')
+                        : (isPink ? 'text-[#881337] hover:text-[#4c0519]' : 'text-[#9b9a97] hover:text-[#37352f] dark:hover:text-white')
                     }`}
                   >
                     <Paperclip size={13} />
@@ -1177,8 +1210,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     onClick={() => setActiveTab('activity')}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                       activeTab === 'activity'
-                        ? (darkMode ? 'bg-[#333] text-white shadow-xs' : 'bg-white text-[#37352f] shadow-xs')
-                        : 'text-[#9b9a97] hover:text-[#37352f] dark:hover:text-white'
+                        ? (isPink ? 'bg-white text-[#9f1239] shadow-xs font-bold' : darkMode ? 'bg-[#333] text-white shadow-xs' : 'bg-white text-[#37352f] shadow-xs')
+                        : (isPink ? 'text-[#881337] hover:text-[#4c0519]' : 'text-[#9b9a97] hover:text-[#37352f] dark:hover:text-white')
                     }`}
                   >
                     <History size={13} />
@@ -1196,7 +1229,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     />
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-[#2383e2] text-white rounded-lg text-xs font-semibold hover:bg-[#1d6ec0] transition-colors"
+                      className={`flex items-center gap-1 px-3 py-1.5 text-white rounded-lg text-xs font-semibold transition-colors ${
+                        isPink ? 'bg-[#e11d48] hover:bg-[#be123c]' : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
+                      }`}
                     >
                       <Plus size={13} />
                       <span>Thêm tệp (&lt;5MB)</span>
@@ -1210,7 +1245,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 <div className="space-y-3">
                   {(draftTask.comments || []).length === 0 ? (
                     <div className={`p-5 rounded-xl border text-center text-xs ${
-                      darkMode ? 'bg-[#242424]/50 border-[#2f2f2f] text-[#777]' : 'bg-[#fafafa] border-[#e8e7e4] text-[#9b9a97]'
+                      isPink
+                        ? 'bg-[#fff0f3] border-[#fecdd3] text-[#881337]'
+                        : darkMode ? 'bg-[#242424]/50 border-[#2f2f2f] text-[#777]' : 'bg-[#fafafa] border-[#e8e7e4] text-[#9b9a97]'
                     }`}>
                       Chưa có trao đổi nào. Hãy để lại bình luận để thảo luận tiến độ công việc.
                     </div>
@@ -1219,7 +1256,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div
                         key={c.id}
                         className={`p-3 rounded-xl border text-xs space-y-1.5 ${
-                          darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
+                          isPink
+                            ? 'bg-[#fff0f3] border-[#fecdd3]'
+                            : darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1230,16 +1269,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                               referrerPolicy="no-referrer"
                               className="w-5 h-5 rounded-full object-cover"
                             />
-                            <strong className="text-[#37352f] dark:text-white">{c.userName}</strong>
+                            <strong className={isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'}>{c.userName}</strong>
                           </div>
                           <span 
                             title={formatFullTimestamp(c.createdAt)}
-                            className="text-[10px] text-[#9b9a97] font-mono"
+                            className={`text-[10px] font-mono ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}
                           >
                             {formatRelativeTime(c.createdAt)} ({formatFullTimestamp(c.createdAt)})
                           </span>
                         </div>
-                        <p className="text-[#5a5a58] dark:text-[#bbb] pl-7 leading-relaxed">{c.text}</p>
+                        <p className={`pl-7 leading-relaxed ${isPink ? 'text-[#881337]' : darkMode ? 'text-[#bbb]' : 'text-[#5a5a58]'}`}>{c.text}</p>
                       </div>
                     ))
                   )}
@@ -1267,13 +1306,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         }
                       }}
                       className={`flex-1 text-xs px-3 py-2 border rounded-lg outline-none ${
-                        darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-white border-[#e3e2e0]'
+                        isPink
+                          ? 'bg-[#fff5f6] border-[#fecdd3] text-[#4c0519] placeholder-[#9f1239]/50'
+                          : darkMode ? 'bg-[#242424] border-[#3a3a3a] text-white' : 'bg-white border-[#e3e2e0]'
                       }`}
                     />
                     <button
                       type="submit"
                       disabled={!commentInput.trim()}
-                      className="px-3.5 py-2 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-all"
+                      className={`px-3.5 py-2 text-white text-xs font-semibold rounded-lg disabled:opacity-40 transition-all ${
+                        isPink ? 'bg-[#e11d48] hover:bg-[#be123c]' : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
+                      }`}
                     >
                       Gửi
                     </button>
@@ -1295,12 +1338,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <div 
                       onClick={() => fileInputRef.current?.click()}
                       className={`p-6 rounded-xl border border-dashed text-center text-xs cursor-pointer transition-colors ${
-                        darkMode ? 'bg-[#242424]/40 border-[#3a3a3a] hover:bg-[#282828]' : 'bg-[#fafafa] border-[#d8d7d4] hover:bg-[#f0f0ee]'
+                        isPink
+                          ? 'bg-[#fff0f3] border-[#fecdd3] hover:bg-[#ffe4e6]'
+                          : darkMode ? 'bg-[#242424]/40 border-[#3a3a3a] hover:bg-[#282828]' : 'bg-[#fafafa] border-[#d8d7d4] hover:bg-[#f0f0ee]'
                       }`}
                     >
-                      <Paperclip size={20} className="mx-auto mb-2 text-[#9b9a97]" />
-                      <p className="font-semibold text-[#5a5a58] dark:text-[#ccc]">Nhấn để tải lên tệp đính kèm</p>
-                      <p className="text-[11px] text-[#9b9a97] mt-0.5">Giới hạn dung lượng tối đa &lt; 5MB (hình ảnh, tài liệu, pdf, nén)</p>
+                      <Paperclip size={20} className={`mx-auto mb-2 ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`} />
+                      <p className={`font-semibold ${isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#ccc]' : 'text-[#5a5a58]'}`}>Nhấn để tải lên tệp đính kèm</p>
+                      <p className={`text-[11px] mt-0.5 ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}>Giới hạn dung lượng tối đa &lt; 5MB (hình ảnh, tài liệu, pdf, nén)</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1308,16 +1353,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         <div
                           key={att.id}
                           className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 transition-all ${
-                            darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
+                            isPink
+                              ? 'bg-[#fff0f3] border-[#fecdd3]'
+                              : darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             {getFileIcon(att.type)}
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold text-[#37352f] dark:text-white truncate" title={att.name}>
+                              <p className={`text-xs font-semibold truncate ${isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'}`} title={att.name}>
                                 {att.name}
                               </p>
-                              <p className="text-[10px] text-[#9b9a97]">
+                              <p className={`text-[10px] ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}>
                                 {formatFileSize(att.size)} • {formatRelativeTime(att.uploadedAt)}
                               </p>
                             </div>
@@ -1327,7 +1374,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             <a
                               href={att.url}
                               download={att.name}
-                              className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-[#2383e2] transition-colors"
+                              className={`p-1.5 rounded-md transition-colors ${
+                                isPink ? 'text-[#e11d48] hover:bg-[#ffe4e6]' : 'text-[#2383e2] hover:bg-black/5 dark:hover:bg-white/5'
+                              }`}
                               title="Tải xuống tệp"
                             >
                               <Download size={14} />
@@ -1352,18 +1401,20 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 <div className="space-y-2.5 max-h-80 overflow-y-auto no-scrollbar">
                   {/* Creation log item */}
                   <div className={`p-3 rounded-xl border text-xs space-y-1 ${
-                    darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
+                    isPink
+                      ? 'bg-[#fff0f3] border-[#fecdd3]'
+                      : darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
                   }`}>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 font-semibold text-[#37352f] dark:text-white">
+                      <div className={`flex items-center gap-1.5 font-semibold ${isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'}`}>
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
                         <span>Khởi tạo công việc</span>
                       </div>
-                      <span className="text-[10px] text-[#9b9a97] font-mono">
+                      <span className={`text-[10px] font-mono ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}>
                         {formatFullTimestamp(draftTask.createdAt)}
                       </span>
                     </div>
-                    <p className="text-[#787774] dark:text-[#aaa] pl-3.5">
+                    <p className={`pl-3.5 ${isPink ? 'text-[#881337]' : darkMode ? 'text-[#aaa]' : 'text-[#787774]'}`}>
                       Công việc được khởi tạo vào hệ thống.
                     </p>
                   </div>
@@ -1373,22 +1424,24 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <div
                       key={log.id}
                       className={`p-3 rounded-xl border text-xs space-y-1 ${
-                        darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
+                        isPink
+                          ? 'bg-[#fff0f3] border-[#fecdd3]'
+                          : darkMode ? 'bg-[#242424] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 font-semibold text-[#37352f] dark:text-white">
-                          <span className="w-2 h-2 rounded-full bg-[#2383e2]" />
+                        <div className={`flex items-center gap-1.5 font-semibold ${isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'}`}>
+                          <span className={`w-2 h-2 rounded-full ${isPink ? 'bg-[#e11d48]' : 'bg-[#2383e2]'}`} />
                           <span>{log.userName}</span>
                         </div>
                         <span 
                           title={formatFullTimestamp(log.timestamp)}
-                          className="text-[10px] text-[#9b9a97] font-mono"
+                          className={`text-[10px] font-mono ${isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'}`}
                         >
                           {formatRelativeTime(log.timestamp)} ({formatFullTimestamp(log.timestamp)})
                         </span>
                       </div>
-                      <p className="text-[#787774] dark:text-[#aaa] pl-3.5 leading-relaxed">
+                      <p className={`pl-3.5 leading-relaxed ${isPink ? 'text-[#881337]' : darkMode ? 'text-[#aaa]' : 'text-[#787774]'}`}>
                         {log.details}
                       </p>
                     </div>

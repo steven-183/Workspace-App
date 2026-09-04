@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ProjectPage, Task } from '../types';
+import { AppTheme, ProjectPage, Task } from '../types';
 import { NOTION_COLORS } from '../utils/notionStyles';
 import { formatDateVi, getTodayString, isOverdue } from '../utils/dateUtils';
 import { 
@@ -16,6 +16,7 @@ interface CalendarViewProps {
   onTaskClick: (task: Task) => void;
   onAddNewTaskWithDate: (dateStr: string) => void;
   darkMode: boolean;
+  appTheme?: AppTheme;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -24,7 +25,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onTaskClick,
   onAddNewTaskWithDate,
   darkMode,
+  appTheme = 'light',
 }) => {
+  const isPink = appTheme === 'qanda_pink';
   const today = getTodayString();
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
 
@@ -95,13 +98,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       {/* Calendar Header Nav */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3">
-          <h2 className="text-base sm:text-lg font-bold text-[#37352f] dark:text-white">
+          <h2 className={`text-base sm:text-lg font-bold ${
+            isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'
+          }`}>
             Tháng {month + 1}, {year}
           </h2>
           <button
             onClick={jumpToToday}
             className={`px-2.5 py-1 text-xs font-semibold rounded-md border shadow-xs transition-colors ${
-              darkMode ? 'bg-[#2a2a2a] border-[#3e3e3e] text-white' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+              isPink 
+                ? 'bg-white border-[#fda4af] text-[#9f1239] hover:bg-[#fff0f3]' 
+                : darkMode 
+                ? 'bg-[#2a2a2a] border-[#3e3e3e] text-white' 
+                : 'bg-white border-[#e3e2e0] text-[#37352f]'
             }`}
           >
             Hôm nay
@@ -112,7 +121,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <button
             onClick={prevMonth}
             className={`p-1.5 rounded-md border transition-colors ${
-              darkMode ? 'border-[#383838] text-[#aaa]' : 'border-[#e3e2e0] text-[#787774]'
+              isPink 
+                ? 'border-[#fda4af] text-[#881337] hover:bg-[#ffe4e6]' 
+                : darkMode 
+                ? 'border-[#383838] text-[#aaa]' 
+                : 'border-[#e3e2e0] text-[#787774]'
             }`}
           >
             <ChevronLeft size={16} />
@@ -120,7 +133,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <button
             onClick={nextMonth}
             className={`p-1.5 rounded-md border transition-colors ${
-              darkMode ? 'border-[#383838] text-[#aaa]' : 'border-[#e3e2e0] text-[#787774]'
+              isPink 
+                ? 'border-[#fda4af] text-[#881337] hover:bg-[#ffe4e6]' 
+                : darkMode 
+                ? 'border-[#383838] text-[#aaa]' 
+                : 'border-[#e3e2e0] text-[#787774]'
             }`}
           >
             <ChevronRight size={16} />
@@ -132,21 +149,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Calendar Grid Container */}
         <div className={`flex-1 rounded-xl border overflow-hidden flex flex-col shadow-xs ${
-          darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
+          isPink ? 'bg-white border-[#fecdd3]' : darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
         }`}>
           {/* Days of week */}
           <div className={`grid grid-cols-7 border-b text-xs font-semibold py-2 text-center shrink-0 ${
-            darkMode ? 'bg-[#181818] border-[#2f2f2f] text-[#888]' : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#9b9a97]'
+            isPink 
+              ? 'bg-[#fff5f6] border-[#fecdd3] text-[#881337]' 
+              : darkMode 
+              ? 'bg-[#181818] border-[#2f2f2f] text-[#888]' 
+              : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#9b9a97]'
           }`}>
             {daysHeader.map((d, i) => (
-              <div key={i} className={i === 0 || i === 6 ? 'text-red-400' : ''}>
+              <div key={i} className={i === 0 || i === 6 ? 'text-red-500 font-semibold' : ''}>
                 {d}
               </div>
             ))}
           </div>
 
           {/* Day Cells */}
-          <div className="grid grid-cols-7 flex-1 auto-rows-fr divide-x divide-y divide-[#f1f1ef] dark:divide-[#282828] overflow-y-auto">
+          <div className={`grid grid-cols-7 flex-1 auto-rows-fr divide-x divide-y overflow-y-auto ${
+            isPink ? 'divide-[#ffe4e6]' : darkMode ? 'divide-[#282828]' : 'divide-[#f1f1ef]'
+          }`}>
             {calendarCells.map((cell) => {
               // Exact date filtering: only tasks that match this date
               const dayTasks = tasks.filter((t) => {
@@ -159,18 +182,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <div
                   key={cell.dateStr}
                   onClick={() => onAddNewTaskWithDate(cell.dateStr)}
-                  className={`min-h-[110px] p-1.5 flex flex-col justify-between group hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer ${
-                    !cell.isCurrentMonth ? (darkMode ? 'bg-[#181818]/60 opacity-40' : 'bg-[#faf9f8] opacity-50') : ''
-                  } ${cell.isToday ? (darkMode ? 'bg-[#2383e2]/10' : 'bg-[#e0f2fe]/50') : ''}`}
+                  className={`min-h-[110px] p-1.5 flex flex-col justify-between group transition-colors cursor-pointer ${
+                    isPink 
+                      ? (!cell.isCurrentMonth ? 'bg-[#fff9fa] opacity-60' : 'hover:bg-[#fff0f3]') 
+                      : (!cell.isCurrentMonth ? (darkMode ? 'bg-[#181818]/60 opacity-40' : 'bg-[#faf9f8] opacity-50') : 'hover:bg-black/5 dark:hover:bg-white/5')
+                  } ${cell.isToday ? (isPink ? 'bg-[#ffe4e6]/50' : darkMode ? 'bg-[#2383e2]/10' : 'bg-[#e0f2fe]/50') : ''}`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span
                       className={`text-xs font-semibold w-5 h-5 flex items-center justify-center rounded-full ${
                         cell.isToday 
-                          ? 'bg-[#2383e2] text-white' 
+                          ? (isPink ? 'bg-[#e11d48] text-white' : 'bg-[#2383e2] text-white')
                           : cell.isCurrentMonth 
-                          ? (darkMode ? 'text-[#ddd]' : 'text-[#37352f]') 
-                          : 'text-[#9b9a97]'
+                          ? (isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#ddd]' : 'text-[#37352f]') 
+                          : (isPink ? 'text-[#881337]/40' : 'text-[#9b9a97]')
                       }`}
                     >
                       {cell.dayNum}
@@ -181,7 +206,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         e.stopPropagation();
                         onAddNewTaskWithDate(cell.dateStr);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 text-[#9b9a97] hover:text-[#2383e2] transition-opacity"
+                      className={`opacity-0 group-hover:opacity-100 p-0.5 transition-opacity ${
+                        isPink ? 'text-[#881337] hover:text-[#e11d48]' : 'text-[#9b9a97] hover:text-[#2383e2]'
+                      }`}
                       title="Thêm công việc vào ngày này"
                     >
                       <Plus size={12} />
@@ -208,13 +235,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         >
                           <div className="flex items-center gap-1 min-w-0">
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${colStyle.dot}`} />
-                            <span className="truncate font-semibold text-[#37352f] dark:text-white">
+                            <span className={`truncate font-semibold ${
+                              isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'
+                            }`}>
                               {task.title}
                             </span>
                           </div>
 
                           {/* Time & status badge for tasks during the day */}
-                          <div className="flex items-center gap-1.5 text-[9px] text-[#787774] dark:text-[#aaa] pl-2.5">
+                          <div className={`flex items-center gap-1.5 text-[9px] pl-2.5 ${
+                            isPink ? 'text-[#881337]' : darkMode ? 'text-[#aaa]' : 'text-[#787774]'
+                          }`}>
                             {task.dueTime && (
                               <span className="flex items-center gap-0.5 font-mono">
                                 <Clock size={9} />

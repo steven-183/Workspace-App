@@ -1,12 +1,20 @@
 @import "tailwindcss";
 
-/* Theme QANDA Pink (#FFA9B2) Custom Styling Support */
+/* Theme Aria Pink Custom Styling & High Contrast Crimson Palette */
 .theme-qanda-pink {
-  --primary: #FFA9B2;
-  --primary-hover: #ff8e9b;
+  --primary: #e11d48;
+  --primary-hover: #be123c;
+  --color-crimson-dark: #4c0519;
+  --color-crimson-mid: #881337;
+  --color-crimson-light: #9f1239;
+  --color-pink-border: #fda4af;
+  --color-pink-border-light: #fecdd3;
+  --color-pink-bg: #fff5f6;
+  --color-pink-card: #ffffff;
 }
 
 .theme-qanda-pink ::selection {
-  background-color: #ffd1d7;
-  color: #701a25;
+  background-color: #fecdd3;
+  color: #4c0519;
 }
+

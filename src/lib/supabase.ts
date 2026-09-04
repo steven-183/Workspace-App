@@ -250,21 +250,19 @@ export async function adaptiveUpsert(
       return { success: true, data: resData };
     }
 
-    // Check for PostgREST PGRST204 missing column error
-    // e.g.: "Could not find the 'description' column of 'tasks' in the schema cache"
-    const missingColMatch = error.message?.match(/Could not find the '([^']+)' column/i);
+    // Check for PostgREST PGRST204 or PostgreSQL missing column errors
+    // Examples:
+    // "Could not find the 'description' column of 'tasks' in the schema cache"
+    // "column "description" of relation "tasks" does not exist"
+    // "column description does not exist"
+    const missingColMatch = 
+      error.message?.match(/Could not find the ['"]?([a-zA-Z0-9_]+)['"]? column/i) ||
+      error.message?.match(/column ['"]?([a-zA-Z0-9_]+)['"]? of relation/i) ||
+      error.message?.match(/column ['"]?([a-zA-Z0-9_]+)['"]? does not exist/i) ||
+      error.message?.match(/['"]([a-zA-Z0-9_]+)['"] does not exist/i);
+
     if (missingColMatch && missingColMatch[1]) {
       const colName = missingColMatch[1];
-      unsupported.add(colName);
-      console.warn(`[Supabase Adaptive] Cached missing column '${colName}' on '${table}'. Retrying...`);
-      delete currentPayload[colName];
-      continue;
-    }
-
-    // Check for Postgres column does not exist error
-    const pgColMatch = error.message?.match(/column "([^"]+)" of relation "[^"]+" does not exist/i);
-    if (pgColMatch && pgColMatch[1]) {
-      const colName = pgColMatch[1];
       unsupported.add(colName);
       console.warn(`[Supabase Adaptive] Cached missing column '${colName}' on '${table}'. Retrying...`);
       delete currentPayload[colName];
@@ -333,35 +331,51 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
       return null;
     }
 
-    const allTasks: Task[] = (tasksData || []).map((row: any) => ({
-      id: String(row.id),
-      title: row.title || 'Không có tiêu đề',
-      description: row.description || '',
-      status: row.status || 'todo',
-      priority: row.priority || 'none',
-      startDate: row.start_date || row.startDate || '',
-      dueDate: row.due_date || row.dueDate || '',
-      startTime: row.start_time || row.startTime || undefined,
-      dueTime: row.due_time || row.dueTime || undefined,
-      assignees: safeJsonParse(row.assignees, []),
-      creator: safeJsonParse(row.creator, undefined),
-      followers: safeJsonParse(row.followers, []),
-      tags: safeJsonParse(row.tags, []),
-      progress: typeof row.progress === 'number' ? row.progress : 0,
-      subtasks: safeJsonParse(row.subtasks, []),
-      blocks: safeJsonParse(row.blocks, []),
-      comments: safeJsonParse(row.comments, []),
-      attachments: safeJsonParse(row.attachments, []),
-      activityLogs: safeJsonParse(row.activity_logs || row.activityLogs, []),
-      isArchived: Boolean(row.is_archived || row.isArchived),
-      isDeleted: Boolean(row.is_deleted || row.isDeleted),
-      deletedAt: row.deleted_at || row.deletedAt || undefined,
-      coverImage: row.cover_image,
-      icon: row.icon,
-      createdAt: row.created_at || row.createdAt || '',
-      updatedAt: row.updated_at || row.updatedAt || '',
-      order: typeof row.order === 'number' ? row.order : 1,
-    }));
+    const allTasks: Task[] = (tasksData || []).map((row: any) => {
+      const parsedBlocks = safeJsonParse(row.blocks, []);
+      const parsedCreator = safeJsonParse(row.creator, undefined);
+      
+      let taskDesc = row.description || '';
+      if (!taskDesc && Array.isArray(parsedBlocks) && parsedBlocks.length > 0) {
+        taskDesc = parsedBlocks
+          .map((b: any) => (typeof b === 'string' ? b : b.content || ''))
+          .filter(Boolean)
+          .join('\n');
+      }
+      if (!taskDesc && parsedCreator && typeof parsedCreator === 'object' && parsedCreator._note) {
+        taskDesc = parsedCreator._note;
+      }
+
+      return {
+        id: String(row.id),
+        title: row.title || 'Không có tiêu đề',
+        description: taskDesc,
+        status: row.status || 'todo',
+        priority: row.priority || 'none',
+        startDate: row.start_date || row.startDate || '',
+        dueDate: row.due_date || row.dueDate || '',
+        startTime: row.start_time || row.startTime || undefined,
+        dueTime: row.due_time || row.dueTime || undefined,
+        assignees: safeJsonParse(row.assignees, []),
+        creator: parsedCreator,
+        followers: safeJsonParse(row.followers, []),
+        tags: safeJsonParse(row.tags, []),
+        progress: typeof row.progress === 'number' ? row.progress : 0,
+        subtasks: safeJsonParse(row.subtasks, []),
+        blocks: parsedBlocks,
+        comments: safeJsonParse(row.comments, []),
+        attachments: safeJsonParse(row.attachments, []),
+        activityLogs: safeJsonParse(row.activity_logs || row.activityLogs, []),
+        isArchived: Boolean(row.is_archived || row.isArchived),
+        isDeleted: Boolean(row.is_deleted || row.isDeleted),
+        deletedAt: row.deleted_at || row.deletedAt || undefined,
+        coverImage: row.cover_image,
+        icon: row.icon,
+        createdAt: row.created_at || row.createdAt || '',
+        updatedAt: row.updated_at || row.updatedAt || '',
+        order: typeof row.order === 'number' ? row.order : 1,
+      };
+    });
 
     const result: ProjectPage[] = (projectsData || []).map((row: any) => {
       const pTasks = allTasks.filter((t: any) => {
@@ -394,14 +408,24 @@ export async function fetchAllProjectsFromSupabase(): Promise<ProjectPage[] | nu
         derivedTeamId = 'performance_marketing';
       }
 
+      const isPersonal = Boolean(
+        row.is_personal || 
+        row.category === 'Cá nhân' || 
+        String(row.id).startsWith('personal-') ||
+        t === 'task cá nhân'
+      );
+      const ownerId = row.user_id || row.owner_id || (row.id && String(row.id).startsWith('personal-board-') ? String(row.id).replace('personal-board-', '') : undefined);
+
       return {
         id: String(row.id),
         title: row.title,
-        icon: row.icon || '📋',
+        icon: row.icon || (isPersonal ? '👤' : '📋'),
         coverImage: row.cover_image,
         description: row.description || '',
-        category: row.category || 'Dự án',
-        teamId: (row.team_id as TeamId) || derivedTeamId,
+        category: row.category || (isPersonal ? 'Cá nhân' : 'Dự án'),
+        teamId: isPersonal ? undefined : ((row.team_id as TeamId) || derivedTeamId),
+        isPersonal,
+        ownerId,
         isFavorite: row.is_favorite || false,
         views: safeJsonParse(row.views, ['kanban', 'timeline', 'table', 'calendar']),
         activeView: row.active_view || 'kanban',
@@ -426,22 +450,26 @@ export async function syncProjectToSupabase(project: ProjectPage): Promise<void>
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData?.user?.id;
 
+    const isPersonal = Boolean(project.isPersonal || project.category === 'Cá nhân' || project.id.startsWith('personal-'));
+
     const projectPayload: any = {
       id: String(project.id),
       title: project.title,
-      icon: project.icon || '📋',
+      icon: project.icon || (isPersonal ? '👤' : '📋'),
       description: project.description || '',
-      category: project.category || 'Dự án',
-      team_id: project.teamId || 'product',
+      category: project.category || (isPersonal ? 'Cá nhân' : 'Dự án'),
+      team_id: isPersonal ? null : (project.teamId || 'product'),
       is_favorite: Boolean(project.isFavorite),
+      is_personal: isPersonal,
       views: project.views || ['kanban', 'timeline', 'table', 'calendar'],
       active_view: project.activeView || 'kanban',
       columns: project.columns || [],
     };
 
-    // Only attach user_id if it's a valid Postgres UUID format
-    if (isValidUUID(userId)) {
-      projectPayload.user_id = userId;
+    // Attach user_id for owner
+    const targetUserId = project.ownerId || userId;
+    if (isValidUUID(targetUserId)) {
+      projectPayload.user_id = targetUserId;
     }
 
     await adaptiveUpsert(supabase, 'projects', projectPayload);
@@ -489,11 +517,22 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
       ? Math.round(task.order)
       : 1;
 
+    const descText = task.description || '';
+    const safeBlocks = (task.blocks && task.blocks.length > 0)
+      ? task.blocks
+      : (descText ? [{ id: 'b-main', type: 'paragraph' as const, content: descText }] : []);
+
+    const safeCreator = task.creator 
+      ? (typeof task.creator === 'object' ? { ...task.creator, _note: descText } : { name: String(task.creator), _note: descText })
+      : (descText ? { name: 'Người tạo', _note: descText } : null);
+
     const fullPayload: any = {
       id: String(task.id),
       project_id: String(projectId),
       title: task.title || 'Không có tiêu đề',
-      description: task.description || '',
+      description: descText,
+      notes: descText,
+      content: descText,
       status: task.status || 'todo',
       priority: task.priority || 'none',
       start_date: task.startDate ? String(task.startDate) : null,
@@ -503,11 +542,11 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
       progress: progressVal,
       order: orderVal,
       assignees: task.assignees || [],
-      creator: task.creator || null,
+      creator: safeCreator,
       followers: task.followers || [],
       tags: task.tags || [],
       subtasks: task.subtasks || [],
-      blocks: task.blocks || [],
+      blocks: safeBlocks,
       comments: task.comments || [],
       attachments: task.attachments || [],
       activity_logs: task.activityLogs || [],
@@ -526,11 +565,13 @@ export async function syncTaskToSupabase(projectId: string, task: Task, projectI
       const err = result.error;
       if (err.code === '23503' || err.message?.includes('foreign key') || err.message?.includes('project_id') || err.message?.includes('projects')) {
         console.warn('Creating missing parent project in Supabase for task:', projectId);
+        const isPersonal = Boolean(projectInfo?.isPersonal || projectInfo?.category === 'Cá nhân' || projectId.startsWith('personal-'));
         await adaptiveUpsert(supabase, 'projects', {
           id: String(projectId),
-          title: projectInfo?.title || 'Bảng công việc',
-          category: projectInfo?.category || 'Dự án',
-          team_id: projectInfo?.teamId || 'product',
+          title: projectInfo?.title || (isPersonal ? 'Task cá nhân' : 'Bảng công việc'),
+          icon: isPersonal ? '👤' : (projectInfo?.icon || '📋'),
+          category: projectInfo?.category || (isPersonal ? 'Cá nhân' : 'Dự án'),
+          team_id: isPersonal ? null : (projectInfo?.teamId || 'product'),
           views: projectInfo?.views || ['kanban', 'timeline', 'table', 'calendar'],
           active_view: projectInfo?.activeView || 'kanban',
           columns: projectInfo?.columns || [],
@@ -580,12 +621,19 @@ export function mergeProjectsWithRemote(localProjects: ProjectPage[], remoteProj
         // Local task not yet reflected in remote fetch
         taskMap.set(lt.id, lt);
       } else {
-        // Both exist: pick the newer one
+        const localDesc = lt.description || '';
+        const remoteDesc = rt.description || '';
+
         const localTime = new Date(lt.updatedAt || lt.createdAt || 0).getTime();
         const remoteTime = new Date(rt.updatedAt || rt.createdAt || 0).getTime();
-        if (localTime >= remoteTime) {
-          taskMap.set(lt.id, lt);
-        }
+        
+        let chosenTask = localTime >= remoteTime ? lt : rt;
+        // CRITICAL: If local task had a description and remote came back with empty description or older description, preserve local description!
+        const mergedDesc = (localDesc && (!remoteDesc || localTime >= remoteTime)) 
+          ? localDesc 
+          : (remoteDesc || localDesc);
+        chosenTask = { ...chosenTask, description: mergedDesc };
+        taskMap.set(lt.id, chosenTask);
       }
     });
 
@@ -593,6 +641,8 @@ export function mergeProjectsWithRemote(localProjects: ProjectPage[], remoteProj
       ...rp,
       teamId: lp.teamId || rp.teamId,
       category: lp.category || rp.category,
+      isPersonal: lp.isPersonal !== undefined ? lp.isPersonal : rp.isPersonal,
+      ownerId: lp.ownerId || rp.ownerId,
       isDeleted: lp.isDeleted !== undefined ? lp.isDeleted : rp.isDeleted,
       tasks: Array.from(taskMap.values()),
     });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PriorityLevel, ProjectPage, StatusId, Task } from '../types';
+import { AppTheme, PriorityLevel, ProjectPage, StatusId, Task } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
 import { formatDateVi, formatShortDate, isDueToday, isOverdue } from '../utils/dateUtils';
 import { 
@@ -23,6 +23,7 @@ interface TableViewProps {
   onAddNewTask: () => void;
   onDeleteTask: (taskId: string) => void;
   darkMode: boolean;
+  appTheme?: AppTheme;
 }
 
 export const TableView: React.FC<TableViewProps> = ({
@@ -33,7 +34,9 @@ export const TableView: React.FC<TableViewProps> = ({
   onAddNewTask,
   onDeleteTask,
   darkMode,
+  appTheme = 'light',
 }) => {
+  const isPink = appTheme === 'qanda_pink';
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState('');
   const [activeDropdown, setActiveDropdown] = useState<{ taskId: string; field: 'status' | 'priority' } | null>(null);
@@ -50,11 +53,15 @@ export const TableView: React.FC<TableViewProps> = ({
   return (
     <div className="w-full h-full overflow-x-auto p-6 sm:p-10 no-scrollbar">
       <div className={`min-w-[880px] rounded-xl border overflow-hidden shadow-xs ${
-        darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
+        isPink ? 'bg-white border-[#fecdd3]' : darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
       }`}>
         {/* Table Header */}
-        <div className={`grid grid-cols-12 border-b text-xs font-semibold text-[#9b9a97] uppercase tracking-wider py-2.5 px-4 ${
-          darkMode ? 'bg-[#181818] border-[#2f2f2f]' : 'bg-[#f7f6f3] border-[#e8e7e4]'
+        <div className={`grid grid-cols-12 border-b text-xs font-semibold uppercase tracking-wider py-2.5 px-4 ${
+          isPink 
+            ? 'bg-[#fff5f6] border-[#fecdd3] text-[#881337]' 
+            : darkMode 
+            ? 'bg-[#181818] border-[#2f2f2f] text-[#9b9a97]' 
+            : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#9b9a97]'
         }`}>
           <div className="col-span-4 flex items-center gap-1.5">
             <span>Tên công việc</span>
@@ -67,7 +74,9 @@ export const TableView: React.FC<TableViewProps> = ({
         </div>
 
         {/* Rows */}
-        <div className="divide-y divide-[#f1f1ef] dark:divide-[#282828] text-xs">
+        <div className={`divide-y text-xs ${
+          isPink ? 'divide-[#ffe4e6]' : darkMode ? 'divide-[#282828]' : 'divide-[#f1f1ef]'
+        }`}>
           {tasks.map((task) => {
             const overdue = isOverdue(task.dueDate, task.status);
             const column = project.columns.find((c) => c.id === task.status);
@@ -78,8 +87,12 @@ export const TableView: React.FC<TableViewProps> = ({
               <div
                 key={task.id}
                 onClick={() => onTaskClick(task)}
-                className={`grid grid-cols-12 items-center py-2.5 px-4 cursor-pointer group hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
-                  darkMode ? 'text-[#ddd]' : 'text-[#37352f]'
+                className={`grid grid-cols-12 items-center py-2.5 px-4 cursor-pointer group transition-colors ${
+                  isPink 
+                    ? 'hover:bg-[#fff0f3] text-[#4c0519]' 
+                    : darkMode 
+                    ? 'hover:bg-white/5 text-[#ddd]' 
+                    : 'hover:bg-black/5 text-[#37352f]'
                 }`}
               >
                 {/* Title */}
@@ -96,8 +109,8 @@ export const TableView: React.FC<TableViewProps> = ({
                     }}
                     className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
                       task.status === 'done' 
-                        ? 'bg-emerald-500 border-emerald-600 text-white' 
-                        : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'
+                        ? (isPink ? 'bg-[#e11d48] border-[#e11d48] text-white' : 'bg-emerald-500 border-emerald-600 text-white')
+                        : (isPink ? 'border-[#fda4af] hover:border-[#e11d48]' : 'border-gray-300 dark:border-gray-600 hover:border-blue-500')
                     }`}
                   >
                     {task.status === 'done' && <Check size={11} strokeWidth={3} />}
@@ -115,7 +128,9 @@ export const TableView: React.FC<TableViewProps> = ({
                           handleTitleSubmit(task.id);
                         }
                       }}
-                      className="bg-transparent outline-none border-b border-blue-500 w-full font-medium"
+                      className={`bg-transparent outline-none border-b w-full font-medium ${
+                        isPink ? 'border-[#e11d48] text-[#4c0519]' : 'border-blue-500'
+                      }`}
                       autoFocus
                     />
                   ) : (
@@ -124,7 +139,11 @@ export const TableView: React.FC<TableViewProps> = ({
                         setTitleDraft(task.title);
                         setEditingTitleId(task.id);
                       }}
-                      className={`font-medium truncate ${task.status === 'done' ? 'line-through text-[#999]' : ''}`}
+                      className={`font-medium truncate ${
+                        task.status === 'done' 
+                          ? (isPink ? 'line-through text-[#881337]/50' : 'line-through text-[#999]') 
+                          : (isPink ? 'text-[#4c0519]' : '')
+                      }`}
                     >
                       {task.title}
                     </span>
@@ -144,7 +163,11 @@ export const TableView: React.FC<TableViewProps> = ({
 
                   {activeDropdown?.taskId === task.id && activeDropdown.field === 'status' && (
                     <div className={`absolute top-full left-0 mt-1 w-44 rounded-xl shadow-xl border p-1 z-30 ${
-                      darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
+                      isPink 
+                        ? 'bg-white border-[#fda4af] text-[#4c0519]' 
+                        : darkMode 
+                        ? 'bg-[#262626] border-[#383838]' 
+                        : 'bg-white border-[#e3e2e0]'
                     }`}>
                       {project.columns.map((c) => (
                         <button
@@ -156,7 +179,9 @@ export const TableView: React.FC<TableViewProps> = ({
                             setActiveDropdown(null);
                           }}
                           className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                            task.status === c.id ? 'bg-blue-50 dark:bg-blue-950 font-semibold' : (darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
+                            task.status === c.id 
+                              ? (isPink ? 'bg-[#ffe4e6] text-[#9f1239] font-semibold' : 'bg-blue-50 dark:bg-blue-950 font-semibold') 
+                              : (isPink ? 'hover:bg-[#fff0f3]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
                           }`}
                         >
                           <span className={`w-2 h-2 rounded-full ${NOTION_COLORS[c.color].dot}`} />
@@ -179,7 +204,11 @@ export const TableView: React.FC<TableViewProps> = ({
 
                   {activeDropdown?.taskId === task.id && activeDropdown.field === 'priority' && (
                     <div className={`absolute top-full left-0 mt-1 w-40 rounded-xl shadow-xl border p-1 z-30 ${
-                      darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
+                      isPink 
+                        ? 'bg-white border-[#fda4af] text-[#4c0519]' 
+                        : darkMode 
+                        ? 'bg-[#262626] border-[#383838]' 
+                        : 'bg-white border-[#e3e2e0]'
                     }`}>
                       {(['urgent', 'high', 'medium', 'low', 'none'] as PriorityLevel[]).map((p) => {
                         const pCfg = PRIORITY_CONFIG[p];
@@ -191,7 +220,9 @@ export const TableView: React.FC<TableViewProps> = ({
                               setActiveDropdown(null);
                             }}
                             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                              task.priority === p ? 'bg-blue-50 dark:bg-blue-950 font-semibold' : (darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
+                              task.priority === p 
+                                ? (isPink ? 'bg-[#ffe4e6] text-[#9f1239] font-semibold' : 'bg-blue-50 dark:bg-blue-950 font-semibold') 
+                                : (isPink ? 'hover:bg-[#fff0f3]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
                             }`}
                           >
                             <span className={`text-[10px] px-1.5 py-0.5 rounded ${pCfg.badgeBg} ${pCfg.badgeText}`}>
@@ -206,7 +237,13 @@ export const TableView: React.FC<TableViewProps> = ({
 
                 {/* Dates */}
                 <div className="col-span-2 text-[11px]">
-                  <span className={overdue ? 'text-red-500 font-semibold flex items-center gap-1' : 'text-[#787774] dark:text-[#aaa]'}>
+                  <span className={
+                    overdue 
+                      ? 'text-red-500 font-semibold flex items-center gap-1' 
+                      : isPink 
+                      ? 'text-[#881337]' 
+                      : 'text-[#787774] dark:text-[#aaa]'
+                  }>
                     {overdue && <AlertCircle size={12} />}
                     {formatShortDate(task.startDate)} → {formatShortDate(task.dueDate)}
                   </span>
@@ -221,11 +258,13 @@ export const TableView: React.FC<TableViewProps> = ({
                       alt={user.name}
                       title={`Người làm: ${user.name}`}
                       referrerPolicy="no-referrer"
-                      className="w-5 h-5 rounded-full ring-2 ring-white dark:ring-[#1e1e1e] object-cover"
+                      className={`w-5 h-5 rounded-full ring-2 object-cover ${
+                        isPink ? 'ring-[#ffe4e6]' : 'ring-white dark:ring-[#1e1e1e]'
+                      }`}
                     />
                   ))}
                   {(!task.assignees || task.assignees.length === 0) && (
-                    <span className="text-[11px] text-[#9b9a97]">--</span>
+                    <span className={`text-[11px] ${isPink ? 'text-[#881337]/50' : 'text-[#9b9a97]'}`}>--</span>
                   )}
                 </div>
 
@@ -245,7 +284,7 @@ export const TableView: React.FC<TableViewProps> = ({
                       <span className="text-[10px] font-semibold truncate max-w-[50px]">{task.creator.name}</span>
                     </div>
                   ) : (
-                    <span className="text-[11px] text-[#9b9a97]">--</span>
+                    <span className={`text-[11px] ${isPink ? 'text-[#881337]/50' : 'text-[#9b9a97]'}`}>--</span>
                   )}
                 </div>
               </div>
@@ -255,18 +294,24 @@ export const TableView: React.FC<TableViewProps> = ({
 
         {/* Footer Quick Add Row & Summary */}
         <div className={`p-3 border-t flex items-center justify-between text-xs ${
-          darkMode ? 'bg-[#181818] border-[#2f2f2f] text-[#888]' : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#787774]'
+          isPink 
+            ? 'bg-[#fff5f6] border-[#fecdd3] text-[#881337]' 
+            : darkMode 
+            ? 'bg-[#181818] border-[#2f2f2f] text-[#888]' 
+            : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#787774]'
         }`}>
           <button
             onClick={onAddNewTask}
-            className="flex items-center gap-1.5 font-medium text-[#2383e2] hover:underline"
+            className={`flex items-center gap-1.5 font-medium hover:underline ${
+              isPink ? 'text-[#e11d48]' : 'text-[#2383e2]'
+            }`}
           >
             <Plus size={14} />
             <span>Thêm dòng mới</span>
           </button>
 
           <div className="flex items-center gap-6 font-mono text-[11px]">
-            <span>Tổng: <strong>{tasks.length} công việc</strong></span>
+            <span>Tổng: <strong className={isPink ? 'text-[#4c0519]' : ''}>{tasks.length} công việc</strong></span>
             <span>Đã xong: <strong className="text-emerald-600">{completedCount}</strong></span>
           </div>
         </div>

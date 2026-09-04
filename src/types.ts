@@ -190,6 +190,8 @@ export interface ProjectPage {
   isFavorite?: boolean;
   category?: string;
   teamId?: TeamId;
+  isPersonal?: boolean;
+  ownerId?: string;
   isDeleted?: boolean;
   deletedAt?: string;
   createdAt: string;

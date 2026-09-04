@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PriorityLevel, ProjectPage, StatusId, Task, TaskNotification, User } from '../types';
+import { AppTheme, PriorityLevel, ProjectPage, StatusId, Task, TaskNotification, User } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
 import { formatShortDate, isDueThisWeek, isDueToday, isOverdue } from '../utils/dateUtils';
 import { NotificationCenter } from './NotificationCenter';
@@ -39,6 +39,7 @@ interface MyTasksViewProps {
   onSelectProject: (projectId: string) => void;
   onOpenAuthModal: () => void;
   darkMode: boolean;
+  appTheme?: AppTheme;
 }
 
 type GroupMode = 'dueDate' | 'project' | 'status';
@@ -58,7 +59,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
   onSelectProject,
   onOpenAuthModal,
   darkMode,
+  appTheme = 'light',
 }) => {
+  const isPink = appTheme === 'qanda_pink';
   const [groupMode, setGroupMode] = useState<GroupMode>('dueDate');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -271,7 +274,11 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     <div className="w-full max-w-5xl mx-auto p-6 sm:p-10 space-y-6">
       {/* Header section with User Profile and My Tasks */}
       <div className={`p-6 rounded-2xl border transition-all ${
-        darkMode ? 'bg-[#202020] border-[#313131]' : 'bg-[#fbfbfa] border-[#e8e7e4]'
+        isPink 
+          ? 'bg-white border-[#fecdd3]' 
+          : darkMode 
+          ? 'bg-[#202020] border-[#313131]' 
+          : 'bg-[#fbfbfa] border-[#e8e7e4]'
       }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -280,18 +287,22 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 src={currentUser.avatar}
                 alt={currentUser.name}
                 referrerPolicy="no-referrer"
-                className="w-14 h-14 rounded-2xl ring-2 ring-[#2383e2] object-cover shadow-sm"
+                className={`w-14 h-14 rounded-2xl ring-2 object-cover shadow-sm ${
+                  isPink ? 'ring-[#e11d48]' : 'ring-[#2383e2]'
+                }`}
               />
               <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white dark:border-[#202020] rounded-full" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold">Công việc của tôi</h1>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#2383e2]/10 text-[#2383e2] font-semibold">
+                <h1 className={`text-xl sm:text-2xl font-bold ${isPink ? 'text-[#4c0519]' : ''}`}>Công việc của tôi</h1>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                  isPink ? 'bg-[#ffe4e6] text-[#9f1239]' : 'bg-[#2383e2]/10 text-[#2383e2]'
+                }`}>
                   {currentUser.name}
                 </span>
               </div>
-              <p className="text-xs text-[#9b9a97] mt-0.5">
+              <p className={`text-xs mt-0.5 ${isPink ? 'text-[#881337]/70' : 'text-[#9b9a97]'}`}>
                 {currentUser.email} • Theo dõi việc được giao và các công việc cần bạn duyệt
               </p>
             </div>
@@ -300,7 +311,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onAddNewTaskForUser}
-              className="px-3.5 py-2 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+              className={`px-3.5 py-2 text-white text-xs font-semibold rounded-xl shadow-xs flex items-center gap-1.5 transition-all ${
+                isPink ? 'bg-[#e11d48] hover:bg-[#be123c]' : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
+              }`}
             >
               <Plus size={14} strokeWidth={2.5} />
               <span>Tạo việc cho tôi</span>
@@ -312,19 +325,19 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
           <div className={`p-3 rounded-xl border cursor-pointer transition-colors ${
             statusFilter === 'all'
-              ? (darkMode ? 'bg-[#2a2a2a] border-[#555]' : 'bg-blue-50/50 border-[#2383e2]')
-              : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
+              ? (isPink ? 'bg-[#fff0f3] border-[#e11d48]' : darkMode ? 'bg-[#2a2a2a] border-[#555]' : 'bg-blue-50/50 border-[#2383e2]')
+              : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
           }`} onClick={() => setStatusFilter('all')}>
-            <div className="text-[11px] text-[#9b9a97] font-medium">Tổng việc liên quan</div>
-            <div className="text-xl font-bold mt-1 text-[#37352f] dark:text-white">{allCount}</div>
+            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Tổng việc liên quan</div>
+            <div className={`text-xl font-bold mt-1 ${isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'}`}>{allCount}</div>
           </div>
 
           <div className={`p-3 rounded-xl border cursor-pointer transition-colors ${
             statusFilter === 'active'
-              ? (darkMode ? 'bg-[#2a2a2a] border-amber-500' : 'bg-amber-50/50 border-amber-400')
-              : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
+              ? (isPink ? 'bg-[#fff0f3] border-amber-500' : darkMode ? 'bg-[#2a2a2a] border-amber-500' : 'bg-amber-50/50 border-amber-400')
+              : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
           }`} onClick={() => setStatusFilter('active')}>
-            <div className="text-[11px] text-[#9b9a97] font-medium">Đang làm (Phụ trách)</div>
+            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Đang làm (Phụ trách)</div>
             <div className="text-xl font-bold mt-1 text-amber-500">{activeCount}</div>
           </div>
 
@@ -333,7 +346,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               ? (darkMode ? 'bg-purple-950/60 border-purple-500' : 'bg-purple-50 border-purple-400')
               : (reviewCount > 0
                   ? (darkMode ? 'bg-purple-950/30 border-purple-800/60' : 'bg-purple-50/50 border-purple-200')
-                  : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'))
+                  : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'))
           }`} onClick={() => setStatusFilter('review')}>
             <div className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold flex items-center justify-between">
               <span>Cần review (Bạn duyệt)</span>
@@ -345,9 +358,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           <div className={`p-3 rounded-xl border cursor-pointer transition-colors ${
             statusFilter === 'done'
               ? (darkMode ? 'bg-[#2a2a2a] border-emerald-500' : 'bg-emerald-50/50 border-emerald-400')
-              : (darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
+              : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
           }`} onClick={() => setStatusFilter('done')}>
-            <div className="text-[11px] text-[#9b9a97] font-medium">Đã hoàn thành</div>
+            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Đã hoàn thành</div>
             <div className="text-xl font-bold mt-1 text-emerald-500">{doneCount}</div>
           </div>
         </div>
@@ -355,7 +368,11 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
 
       {/* Control Bar: Filter, Search, and Grouping */}
       <div className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-        darkMode ? 'bg-[#202020] border-[#313131]' : 'bg-white border-[#e8e7e4]'
+        isPink 
+          ? 'bg-white border-[#fecdd3]' 
+          : darkMode 
+          ? 'bg-[#202020] border-[#313131]' 
+          : 'bg-white border-[#e8e7e4]'
       }`}>
         {/* Status Filters: Requirement 3 - Tất cả, Đang làm, Cần review, Đã xong */}
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -363,8 +380,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               statusFilter === 'all'
-                ? (darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
-                : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
+                ? (isPink ? 'bg-[#e11d48] text-white shadow-xs' : darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
+                : (isPink ? 'text-[#881337] hover:bg-[#fff0f3]' : darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
             }`}
           >
             Tất cả ({allCount})
@@ -374,8 +391,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             onClick={() => setStatusFilter('active')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               statusFilter === 'active'
-                ? (darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
-                : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
+                ? (isPink ? 'bg-[#e11d48] text-white shadow-xs' : darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
+                : (isPink ? 'text-[#881337] hover:bg-[#fff0f3]' : darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
             }`}
           >
             Đang làm ({activeCount})
@@ -388,7 +405,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 ? (darkMode ? 'bg-purple-700 text-white shadow-xs' : 'bg-purple-600 text-white shadow-xs')
                 : (reviewCount > 0
                     ? (darkMode ? 'text-purple-400 hover:bg-purple-950/40 font-bold' : 'text-purple-700 hover:bg-purple-50 font-bold')
-                    : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]'))
+                    : (isPink ? 'text-[#881337] hover:bg-[#fff0f3]' : darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]'))
             }`}
           >
             <Eye size={13} />
@@ -406,8 +423,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             onClick={() => setStatusFilter('done')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               statusFilter === 'done'
-                ? (darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
-                : (darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
+                ? (isPink ? 'bg-[#e11d48] text-white shadow-xs' : darkMode ? 'bg-[#333] text-white' : 'bg-[#2383e2] text-white shadow-xs')
+                : (isPink ? 'text-[#881337] hover:bg-[#fff0f3]' : darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
             }`}
           >
             Đã xong ({doneCount})
@@ -418,28 +435,30 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           {/* Search */}
           <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs ${
-            darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-[#fbfbfa] border-[#e3e2e0]'
+            isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-[#fbfbfa] border-[#e3e2e0]'
           }`}>
-            <Search size={13} className="text-[#9b9a97]" />
+            <Search size={13} className={isPink ? 'text-[#881337]' : 'text-[#9b9a97]'} />
             <input
               type="text"
               placeholder="Tìm việc của tôi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent outline-none text-xs w-28 sm:w-36"
+              className={`bg-transparent outline-none text-xs w-28 sm:w-36 ${
+                isPink ? 'text-[#4c0519] placeholder:text-[#881337]/50' : ''
+              }`}
             />
           </div>
 
           {/* Group mode */}
           <div className={`flex items-center rounded-lg p-0.5 border text-xs ${
-            darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-[#f1f1ef] border-[#e0deda]'
+            isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-[#f1f1ef] border-[#e0deda]'
           }`}>
             <button
               onClick={() => setGroupMode('dueDate')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                 groupMode === 'dueDate'
-                  ? (darkMode ? 'bg-[#333] text-white' : 'bg-white text-[#37352f] shadow-xs')
-                  : 'text-[#787774]'
+                  ? (isPink ? 'bg-white text-[#9f1239] shadow-xs font-semibold' : darkMode ? 'bg-[#333] text-white' : 'bg-white text-[#37352f] shadow-xs')
+                  : (isPink ? 'text-[#881337]' : 'text-[#787774]')
               }`}
             >
               Hạn chót
@@ -448,8 +467,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               onClick={() => setGroupMode('project')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                 groupMode === 'project'
-                  ? (darkMode ? 'bg-[#333] text-white' : 'bg-white text-[#37352f] shadow-xs')
-                  : 'text-[#787774]'
+                  ? (isPink ? 'bg-white text-[#9f1239] shadow-xs font-semibold' : darkMode ? 'bg-[#333] text-white' : 'bg-white text-[#37352f] shadow-xs')
+                  : (isPink ? 'text-[#881337]' : 'text-[#787774]')
               }`}
             >
               Dự án
@@ -458,8 +477,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               onClick={() => setGroupMode('status')}
               className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                 groupMode === 'status'
-                  ? (darkMode ? 'bg-[#333] text-white' : 'bg-white text-[#37352f] shadow-xs')
-                  : 'text-[#787774]'
+                  ? (isPink ? 'bg-white text-[#9f1239] shadow-xs font-semibold' : darkMode ? 'bg-[#333] text-white' : 'bg-white text-[#37352f] shadow-xs')
+                  : (isPink ? 'text-[#881337]' : 'text-[#787774]')
               }`}
             >
               Trạng thái
@@ -472,7 +491,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       <div className="space-y-6">
         {groupedSections.map((section) => (
           <div key={section.id} className="space-y-2">
-            <div className="flex items-center gap-2 px-1 text-xs font-bold text-[#9b9a97] uppercase tracking-wider">
+            <div className={`flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wider ${
+              isPink ? 'text-[#881337]' : 'text-[#9b9a97]'
+            }`}>
               {section.icon}
               <span>{section.title}</span>
               <span className="text-[11px] font-mono font-normal">({section.items.length})</span>
@@ -494,7 +515,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                     className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-2xs ${
                       isInReview && isReviewer
                         ? (darkMode ? 'bg-purple-950/20 border-purple-800/50 hover:bg-purple-950/30' : 'bg-purple-50/30 border-purple-200 hover:border-purple-300')
-                        : (darkMode
+                        : (isPink 
+                            ? 'bg-white border-[#fecdd3] hover:border-[#fda4af]' 
+                            : darkMode
                             ? 'bg-[#222] border-[#313131] hover:bg-[#282828]'
                             : 'bg-white border-[#e3e2e0] hover:border-[#c5c4c1]')
                     }`}
@@ -512,8 +535,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                         }}
                         className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
                           isDone
-                            ? 'bg-emerald-500 border-emerald-600 text-white'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'
+                            ? (isPink ? 'bg-[#e11d48] border-[#e11d48] text-white' : 'bg-emerald-500 border-emerald-600 text-white')
+                            : (isPink ? 'border-[#fda4af] hover:border-[#e11d48]' : 'border-gray-300 dark:border-gray-600 hover:border-blue-500')
                         }`}
                       >
                         {isDone && <Check size={11} strokeWidth={3} />}
@@ -524,8 +547,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                           <span
                             className={`text-xs font-semibold truncate ${
                               isDone
-                                ? 'line-through text-[#9b9a97]'
-                                : darkMode ? 'text-[#e0e0e0]' : 'text-[#37352f]'
+                                ? (isPink ? 'line-through text-[#881337]/50' : 'line-through text-[#9b9a97]')
+                                : (isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#e0e0e0]' : 'text-[#37352f]')
                             }`}
                           >
                             {t.title}
@@ -546,7 +569,11 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                               onSelectProject(p.id);
                             }}
                             className={`hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border transition-colors shrink-0 ${
-                              darkMode ? 'bg-[#2a2a2a] border-[#3a3a3a] text-[#aaa] hover:text-white' : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#787774] hover:text-black'
+                              isPink 
+                                ? 'bg-[#fff5f6] border-[#fecdd3] text-[#881337] hover:text-[#4c0519]' 
+                                : darkMode 
+                                ? 'bg-[#2a2a2a] border-[#3a3a3a] text-[#aaa] hover:text-white' 
+                                : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#787774] hover:text-black'
                             }`}
                             title="Chuyển đến bảng dự án này"
                           >
@@ -556,7 +583,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                         </div>
 
                         {/* Subtasks or Reviewer info preview */}
-                        <div className="flex items-center gap-3 text-[10px] text-[#9b9a97] mt-0.5">
+                        <div className={`flex items-center gap-3 text-[10px] mt-0.5 ${
+                          isPink ? 'text-[#881337]/70' : 'text-[#9b9a97]'
+                        }`}>
                           {t.subtasks && t.subtasks.length > 0 && (
                             <div className="flex items-center gap-1">
                               <CheckSquare size={10} />
@@ -598,6 +627,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                               ? 'bg-red-50 text-red-600 dark:bg-red-950/40 border border-red-200 dark:border-red-900 font-bold'
                               : isDueToday(t.dueDate)
                               ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40'
+                              : isPink
+                              ? 'text-[#881337]'
                               : 'text-[#9b9a97]'
                           }`}
                         >
@@ -606,7 +637,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                         </span>
                       )}
 
-                      <ChevronRight size={14} className="text-[#9b9a97] group-hover:text-blue-500 transition-colors" />
+                      <ChevronRight size={14} className={`transition-colors ${
+                        isPink ? 'text-[#881337] group-hover:text-[#e11d48]' : 'text-[#9b9a97] group-hover:text-blue-500'
+                      }`} />
                     </div>
                   </div>
                 );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NotionColor, PriorityLevel, ProjectPage, StatusColumn, StatusId, Task } from '../types';
+import { AppTheme, NotionColor, PriorityLevel, ProjectPage, StatusColumn, StatusId, Task } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
 import { formatDateVi, formatShortDate, isDueToday, isOverdue } from '../utils/dateUtils';
 import { 
@@ -30,6 +30,7 @@ interface KanbanBoardProps {
   onDeleteColumn: (columnId: StatusId) => void;
   onUpdateColumn: (columnId: StatusId, title: string, color: NotionColor) => void;
   darkMode: boolean;
+  appTheme?: AppTheme;
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
@@ -42,7 +43,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onDeleteColumn,
   onUpdateColumn,
   darkMode,
+  appTheme = 'light',
 }) => {
+  const isPink = appTheme === 'qanda_pink';
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<StatusId | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -129,10 +132,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               onDragOver={(e) => handleDragOverColumn(e, col.id)}
               onDrop={(e) => handleDropOnColumn(e, col.id)}
               className={`w-72 sm:w-80 shrink-0 flex flex-col transition-all ${
-                !isLastColumn ? (darkMode ? 'pr-6 border-r border-[#2d2d2d]' : 'pr-6 border-r border-[#e5e4e0]') : ''
+                !isLastColumn 
+                  ? (isPink ? 'pr-6 border-r border-[#fecdd3]' : darkMode ? 'pr-6 border-r border-[#2d2d2d]' : 'pr-6 border-r border-[#e5e4e0]') 
+                  : ''
               } ${
                 isDragOver 
-                  ? (darkMode ? 'bg-[#222]/50 ring-2 ring-[#0284c7] rounded-xl p-2' : 'bg-[#eef6fc]/50 ring-2 ring-[#2383e2] rounded-xl p-2')
+                  ? (isPink ? 'bg-[#ffe4e6]/50 ring-2 ring-[#e11d48] rounded-xl p-2' : darkMode ? 'bg-[#222]/50 ring-2 ring-[#0284c7] rounded-xl p-2' : 'bg-[#eef6fc]/50 ring-2 ring-[#2383e2] rounded-xl p-2')
                   : ''
               }`}
             >
@@ -143,7 +148,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     <span className={`w-1.5 h-1.5 rounded-full ${colStyle.dot}`} />
                     {col.title}
                   </span>
-                  <span className={`text-xs font-mono font-medium ${darkMode ? 'text-[#777]' : 'text-[#9b9a97]'}`}>
+                  <span className={`text-xs font-mono font-medium ${
+                    isPink 
+                      ? 'text-[#9f1239] bg-[#ffe4e6] px-2 py-0.5 rounded-full border border-[#fecdd3]' 
+                      : darkMode ? 'text-[#777]' : 'text-[#9b9a97]'
+                  }`}>
                     {colTasks.length}
                   </span>
                 </div>
@@ -172,8 +181,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       onClick={() => onTaskClick(task)}
                       className={`group relative rounded-xl border p-3.5 transition-all cursor-pointer shadow-xs ${
                         isBeingDragged 
-                          ? 'opacity-40 scale-95 border-dashed border-blue-400' 
-                          : darkMode 
+                          ? 'opacity-40 scale-95 border-dashed border-rose-400' 
+                          : isPink
+                            ? 'bg-white border-[#fecdd3] hover:border-[#fda4af] hover:shadow-md'
+                            : darkMode 
                             ? 'bg-[#232323] border-[#313131] hover:border-[#444] hover:bg-[#282828]' 
                             : 'bg-white border-[#e3e2e0] hover:border-[#c5c4c1] hover:shadow-md'
                       }`}
@@ -195,12 +206,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className={`text-sm font-semibold leading-snug line-clamp-2 ${
                           task.status === 'done' 
-                            ? (darkMode ? 'line-through text-[#666]' : 'line-through text-[#9b9a97]') 
-                            : (darkMode ? 'text-[#f0f0f0]' : 'text-[#37352f]')
+                            ? (isPink ? 'line-through text-[#881337]/50' : darkMode ? 'line-through text-[#666]' : 'line-through text-[#9b9a97]') 
+                            : (isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#f0f0f0]' : 'text-[#37352f]')
                         }`}>
                           {task.title}
                         </h4>
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-[#9b9a97] cursor-grab">
+                        <div className={`opacity-0 group-hover:opacity-100 transition-opacity cursor-grab ${
+                          isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'
+                        }`}>
                           <GripVertical size={14} />
                         </div>
                       </div>
@@ -223,7 +236,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       )}
 
                       {/* Card Footer: Dates, Subtasks, Priority, Assignees, Attachments */}
-                      <div className="flex items-center justify-between gap-1 pt-1 text-xs border-t border-[#f1f1ef] dark:border-[#2d2d2d]">
+                      <div className={`flex items-center justify-between gap-1 pt-1 text-xs border-t ${
+                        isPink ? 'border-[#fff0f3]' : darkMode ? 'border-[#2d2d2d]' : 'border-[#f1f1ef]'
+                      }`}>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {/* Due Date & Time badge */}
                           {task.dueDate && (
@@ -233,7 +248,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                   ? 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400'
                                   : dueToday
                                   ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
-                                  : darkMode ? 'text-[#888]' : 'text-[#787774]'
+                                  : isPink ? 'text-[#881337]' : darkMode ? 'text-[#888]' : 'text-[#787774]'
                               }`}
                             >
                               <Calendar size={11} className={overdue ? 'text-red-500' : ''} />
@@ -247,7 +262,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           {/* Subtasks checklist counter */}
                           {totalSubtasks > 0 && (
                             <span className={`flex items-center gap-0.5 text-[11px] ${
-                              completedSubtasks === totalSubtasks ? 'text-emerald-600' : 'text-[#9b9a97]'
+                              completedSubtasks === totalSubtasks 
+                                ? 'text-emerald-600 font-semibold' 
+                                : isPink ? 'text-[#881337]' : 'text-[#9b9a97]'
                             }`}>
                               <CheckSquare size={11} />
                               <span className="font-mono">{completedSubtasks}/{totalSubtasks}</span>
@@ -256,7 +273,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
                           {/* Attachments counter */}
                           {(task.attachments || []).length > 0 && (
-                            <span className="flex items-center gap-0.5 text-[11px] text-[#9b9a97]" title="Tệp đính kèm">
+                            <span className={`flex items-center gap-0.5 text-[11px] ${
+                              isPink ? 'text-[#881337]' : 'text-[#9b9a97]'
+                            }`} title="Tệp đính kèm">
                               <Paperclip size={11} />
                               <span className="font-mono">{(task.attachments || []).length}</span>
                             </span>
@@ -264,7 +283,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
                           {/* Comments counter */}
                           {(task.comments || []).length > 0 && (
-                            <span className="flex items-center gap-0.5 text-[11px] text-[#9b9a97]" title="Bình luận">
+                            <span className={`flex items-center gap-0.5 text-[11px] ${
+                              isPink ? 'text-[#881337]' : 'text-[#9b9a97]'
+                            }`} title="Bình luận">
                               <MessageSquare size={11} />
                               <span className="font-mono">{(task.comments || []).length}</span>
                             </span>
@@ -326,7 +347,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 {/* Quick Add Form / Button */}
                 {quickAddColumnId === col.id ? (
                   <div className={`p-3 rounded-xl border shadow-md animate-in fade-in duration-150 ${
-                    darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
+                    isPink 
+                      ? 'bg-white border-2 border-[#fda4af]' 
+                      : darkMode 
+                      ? 'bg-[#262626] border-[#383838]' 
+                      : 'bg-white border-[#e3e2e0]'
                   }`}>
                     <textarea
                       placeholder="Nhập tên công việc mới..."
@@ -345,22 +370,30 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           setQuickAddColumnId(null);
                         }
                       }}
-                      className="w-full text-xs bg-transparent outline-none resize-none min-h-[50px]"
+                      className={`w-full text-xs bg-transparent outline-none resize-none min-h-[50px] ${
+                        isPink ? 'text-[#4c0519] placeholder-[#881337]/60' : darkMode ? 'text-white' : 'text-[#37352f]'
+                      }`}
                       autoFocus
                     />
-                    <div className="flex items-center justify-between pt-2 border-t border-[#f1f1ef] dark:border-[#333]">
-                      <span className="text-[10px] text-[#9b9a97]">Enter ↵ để tạo</span>
+                    <div className={`flex items-center justify-between pt-2 border-t ${
+                      isPink ? 'border-[#ffe4e6]' : darkMode ? 'border-[#333]' : 'border-[#f1f1ef]'
+                    }`}>
+                      <span className={`text-[10px] ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Enter ↵ để tạo</span>
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setQuickAddColumnId(null)}
-                          className="px-2 py-1 text-xs text-[#787774] hover:text-[#37352f] rounded-md transition-colors"
+                          className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                            isPink ? 'text-[#881337] hover:text-[#4c0519] hover:bg-[#ffe4e6]' : 'text-[#787774] hover:text-[#37352f]'
+                          }`}
                         >
                           Hủy
                         </button>
                         <button
                           onClick={() => handleQuickAddSubmit(col.id)}
                           disabled={!quickAddTitle.trim()}
-                          className="px-3 py-1 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-medium rounded-md shadow-xs disabled:opacity-40 transition-all"
+                          className={`px-3 py-1 text-white text-xs font-medium rounded-md shadow-xs disabled:opacity-40 transition-all ${
+                            isPink ? 'bg-[#e11d48] hover:bg-[#be123c]' : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
+                          }`}
                         >
                           Thêm
                         </button>
@@ -374,12 +407,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       setQuickAddTitle('');
                     }}
                     className={`w-full py-2 px-3 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all text-left ${
-                      darkMode 
+                      isPink 
+                        ? 'text-[#881337] hover:bg-[#ffe4e6] hover:text-[#4c0519]' 
+                        : darkMode 
                         ? 'text-[#777] hover:bg-[#252525] hover:text-[#bbb]' 
                         : 'text-[#787774] hover:bg-[#efedea] hover:text-[#37352f]'
                     }`}
                   >
-                    <Plus size={14} />
+                    <Plus size={14} className={isPink ? 'text-[#e11d48]' : ''} />
                     <span>Thêm thẻ</span>
                   </button>
                 )}

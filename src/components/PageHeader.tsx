@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ProjectPage, User } from '../types';
+import { AppTheme, ProjectPage, User } from '../types';
 import { 
   Star, 
   Plus, 
@@ -13,6 +13,7 @@ interface PageHeaderProps {
   onOpenEmojiPicker: () => void;
   onAddNewTask: () => void;
   darkMode: boolean;
+  appTheme?: AppTheme;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -22,7 +23,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   onOpenEmojiPicker,
   onAddNewTask,
   darkMode,
+  appTheme = 'light',
 }) => {
+  const isPink = appTheme === 'qanda_pink';
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.title);
   const [isEditingDesc, setIsEditingDesc] = useState(false);
@@ -48,12 +51,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       <div className="max-w-7xl mx-auto px-6 sm:px-10 relative">
         {/* Breadcrumb & Top bar */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1.5 text-xs text-[#9b9a97]">
+          <div className={`flex items-center gap-1.5 text-xs ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
             <span>Không gian làm việc</span>
-            <ChevronRight size={12} />
+            <ChevronRight size={12} className={isPink ? 'text-[#fda4af]' : ''} />
             <span>{project.category || 'Dự án'}</span>
-            <ChevronRight size={12} />
-            <span className="text-[#5a5a58] dark:text-[#bbb] font-medium truncate max-w-[200px]">{project.title}</span>
+            <ChevronRight size={12} className={isPink ? 'text-[#fda4af]' : ''} />
+            <span className={`font-semibold truncate max-w-[200px] ${
+              isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#bbb]' : 'text-[#5a5a58]'
+            }`}>{project.title}</span>
           </div>
 
           {/* Action bar */}
@@ -62,17 +67,27 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               onClick={() => onUpdateProject({ isFavorite: !project.isFavorite })}
               className={`p-2 rounded-lg border text-xs transition-colors flex items-center gap-1.5 ${
                 project.isFavorite
-                  ? 'bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400'
-                  : darkMode ? 'bg-[#262626] border-[#333] text-[#888] hover:text-white' : 'bg-white border-[#e3e2e0] text-[#787774] hover:text-[#37352f]'
+                  ? (isPink 
+                      ? 'bg-[#ffe4e6] border-[#fda4af] text-[#9f1239]' 
+                      : 'bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400')
+                  : isPink 
+                    ? 'bg-white border-[#fda4af] text-[#881337] hover:bg-[#fff0f3]' 
+                    : darkMode 
+                    ? 'bg-[#262626] border-[#333] text-[#888] hover:text-white' 
+                    : 'bg-white border-[#e3e2e0] text-[#787774] hover:text-[#37352f]'
               }`}
               title={project.isFavorite ? 'Đã yêu thích' : 'Thêm vào mục yêu thích'}
             >
-              <Star size={14} className={project.isFavorite ? 'fill-amber-500 text-amber-500' : ''} />
+              <Star size={14} className={project.isFavorite ? (isPink ? 'fill-[#e11d48] text-[#e11d48]' : 'fill-amber-500 text-amber-500') : ''} />
             </button>
 
             <button
               onClick={onAddNewTask}
-              className="px-3.5 py-1.5 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-semibold rounded-lg shadow-xs flex items-center gap-1.5 transition-all"
+              className={`px-3.5 py-1.5 text-white text-xs font-semibold rounded-lg shadow-xs flex items-center gap-1.5 transition-all ${
+                isPink
+                  ? 'bg-[#e11d48] hover:bg-[#be123c] active:bg-[#9f1239]'
+                  : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
+              }`}
             >
               <Plus size={14} strokeWidth={2.5} />
               <span>Tạo công việc</span>
@@ -85,7 +100,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <button
             onClick={onOpenEmojiPicker}
             className={`w-14 h-14 sm:w-16 sm:h-16 text-3xl sm:text-4xl rounded-2xl flex items-center justify-center shrink-0 shadow-xs transition-transform hover:scale-105 select-none ${
-              darkMode ? 'bg-[#262626] border border-[#383838]' : 'bg-white border border-[#e3e2e0]'
+              isPink
+                ? 'bg-white border-2 border-[#fda4af]'
+                : darkMode 
+                ? 'bg-[#262626] border border-[#383838]' 
+                : 'bg-white border border-[#e3e2e0]'
             }`}
             title="Đổi biểu tượng"
           >
@@ -106,7 +125,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                   }
                 }}
                 className={`text-2xl sm:text-3xl font-bold w-full bg-transparent outline-none border-b pb-1 ${
-                  darkMode ? 'text-white border-blue-500' : 'text-[#37352f] border-blue-500'
+                  isPink 
+                    ? 'text-[#4c0519] border-[#e11d48]' 
+                    : darkMode 
+                    ? 'text-white border-blue-500' 
+                    : 'text-[#37352f] border-blue-500'
                 }`}
                 autoFocus
               />
@@ -116,8 +139,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                   setTitleInput(project.title);
                   setIsEditingTitle(true);
                 }}
-                className={`text-2xl sm:text-3xl font-bold cursor-text rounded-md hover:bg-black/5 dark:hover:bg-white/5 px-1 -ml-1 transition-colors ${
-                  darkMode ? 'text-white' : 'text-[#37352f]'
+                className={`text-2xl sm:text-3xl font-bold cursor-text rounded-md px-1 -ml-1 transition-colors ${
+                  isPink 
+                    ? 'text-[#4c0519] hover:bg-[#ffe4e6]/50' 
+                    : darkMode 
+                    ? 'text-white hover:bg-white/5' 
+                    : 'text-[#37352f] hover:bg-black/5'
                 }`}
               >
                 {project.title || 'Không có tiêu đề'}
@@ -139,7 +166,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     }
                   }}
                   className={`text-sm w-full bg-transparent outline-none border rounded-md p-2 resize-none ${
-                    darkMode ? 'text-[#ccc] border-[#444] bg-[#222]' : 'text-[#5a5a58] border-[#ddd] bg-white'
+                    isPink
+                      ? 'text-[#4c0519] border-[#fda4af] bg-white'
+                      : darkMode 
+                      ? 'text-[#ccc] border-[#444] bg-[#222]' 
+                      : 'text-[#5a5a58] border-[#ddd] bg-white'
                   }`}
                   rows={2}
                   autoFocus
@@ -150,8 +181,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     setDescInput(project.description);
                     setIsEditingDesc(true);
                   }}
-                  className={`text-sm cursor-text rounded-md hover:bg-black/5 dark:hover:bg-white/5 px-1 -ml-1 transition-colors leading-relaxed ${
-                    project.description ? (darkMode ? 'text-[#aaa]' : 'text-[#787774]') : (darkMode ? 'text-[#666] italic' : 'text-[#9b9a97] italic')
+                  className={`text-sm cursor-text rounded-md px-1 -ml-1 transition-colors leading-relaxed ${
+                    project.description 
+                      ? (isPink ? 'text-[#881337] hover:bg-[#ffe4e6]/40' : darkMode ? 'text-[#aaa] hover:bg-white/5' : 'text-[#787774] hover:bg-black/5') 
+                      : (isPink ? 'text-[#9f1239]/70 italic hover:bg-[#ffe4e6]/40' : darkMode ? 'text-[#666] italic hover:bg-white/5' : 'text-[#9b9a97] italic hover:bg-black/5')
                   }`}
                 >
                   {project.description || 'Thêm mô tả hoặc mục tiêu cho bảng công việc này...'}

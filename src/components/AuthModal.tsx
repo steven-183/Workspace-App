@@ -4,9 +4,7 @@ import {
   Mail, 
   User as UserIcon, 
   X, 
-  Check, 
   LogIn, 
-  ArrowRight, 
   Lock, 
   Eye, 
   EyeOff, 
@@ -14,11 +12,7 @@ import {
   CheckCircle2, 
   UserPlus,
   Send,
-  HelpCircle,
-  Database,
-  Copy,
-  Terminal,
-  ExternalLink
+  HelpCircle
 } from 'lucide-react';
 import { 
   signInWithEmail, 
@@ -36,106 +30,7 @@ interface AuthModalProps {
   darkMode: boolean;
 }
 
-type AuthTab = 'signin' | 'signup' | 'sql_guide';
-
-const SUPABASE_INIT_SQL = `-- ==========================================
--- SCRIPT ĐỒNG BỘ 100% CƠ SỞ DỮ LIỆU SUPABASE
--- (Chạy được an toàn cho cả Bảng Đã Có hoặc Bảng Mới)
--- ==========================================
-
--- 1. BẢNG PROFILES (Lưu hồ sơ thành viên)
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id TEXT PRIMARY KEY,
-  full_name TEXT,
-  email TEXT,
-  avatar_url TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 2. BẢNG PROJECTS (Lưu các bảng dự án)
-CREATE TABLE IF NOT EXISTS public.projects (
-  id TEXT PRIMARY KEY,
-  user_id TEXT,
-  title TEXT NOT NULL,
-  icon TEXT DEFAULT '📋',
-  description TEXT DEFAULT '',
-  category TEXT DEFAULT 'Dự án',
-  team_id TEXT DEFAULT 'product',
-  is_favorite BOOLEAN DEFAULT false,
-  views JSONB DEFAULT '["kanban", "timeline", "table", "calendar", "list"]'::jsonb,
-  active_view TEXT DEFAULT 'kanban',
-  columns JSONB DEFAULT '[]'::jsonb,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 3. BẢNG TASKS (Lưu công việc và phân công)
-CREATE TABLE IF NOT EXISTS public.tasks (
-  id TEXT PRIMARY KEY,
-  project_id TEXT REFERENCES public.projects(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  description TEXT DEFAULT '',
-  status TEXT DEFAULT 'backlog',
-  priority TEXT DEFAULT 'none',
-  start_date TEXT,
-  due_date TEXT,
-  start_time TEXT,
-  due_time TEXT,
-  progress INTEGER DEFAULT 0,
-  "order" NUMERIC DEFAULT 1,
-  assignees JSONB DEFAULT '[]'::jsonb,
-  creator JSONB,
-  followers JSONB DEFAULT '[]'::jsonb,
-  tags JSONB DEFAULT '[]'::jsonb,
-  subtasks JSONB DEFAULT '[]'::jsonb,
-  blocks JSONB DEFAULT '[]'::jsonb,
-  comments JSONB DEFAULT '[]'::jsonb,
-  attachments JSONB DEFAULT '[]'::jsonb,
-  activity_logs JSONB DEFAULT '[]'::jsonb,
-  is_archived BOOLEAN DEFAULT false,
-  is_deleted BOOLEAN DEFAULT false,
-  deleted_at TIMESTAMP WITH TIME ZONE,
-  cover_image TEXT,
-  icon TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
-);
-
--- 4. BỔ SUNG CỘT CÒN THIẾU NẾU BẢNG ĐÃ ĐƯỢC TẠO TỪ TRƯỚC
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS start_time TEXT;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS due_time TEXT;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS comments JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS activity_logs JSONB DEFAULT '[]'::jsonb;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS cover_image TEXT;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS icon TEXT;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
-ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS team_id TEXT DEFAULT 'product';
-
--- 5. MỞ QUYỀN TRUY CẬP ĐỂ CẢ TEAM ĐỀU THẤY TASK CỦA NHAU
-ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.projects DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY;
-
--- 6. BẬT BẢNG REALTIME TRONG SUPABASE (Đồng bộ tức thì)
-DO $$
-BEGIN
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.projects;
-  EXCEPTION WHEN duplicate_object THEN
-    NULL;
-  END;
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.tasks;
-  EXCEPTION WHEN duplicate_object THEN
-    NULL;
-  END;
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
-  EXCEPTION WHEN duplicate_object THEN
-    NULL;
-  END;
-END $$;`;
+type AuthTab = 'signin' | 'signup';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
@@ -146,7 +41,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   darkMode,
 }) => {
   const [authTab, setAuthTab] = useState<AuthTab>('signin');
-  const [copiedSql, setCopiedSql] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -158,12 +52,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isEmailUnconfirmed, setIsEmailUnconfirmed] = useState(false);
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(SUPABASE_INIT_SQL);
-    setCopiedSql(true);
-    setTimeout(() => setCopiedSql(false), 2500);
-  };
 
   useEffect(() => {
     if (isOpen) {
@@ -345,9 +233,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold leading-tight">Tài khoản & Cơ sở dữ liệu</h2>
+                <h2 className="text-sm font-bold leading-tight">Tài khoản thành viên</h2>
               </div>
-              <p className="text-[11px] text-[#9b9a97]">Đồng bộ công việc & Phân quyền dự án đa người dùng</p>
+              <p className="text-[11px] text-[#9b9a97]">Đăng nhập để đồng bộ công việc & dữ liệu nhóm</p>
             </div>
           </div>
 
@@ -387,17 +275,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             >
               <UserPlus size={13} />
               <span>Đăng ký</span>
-            </button>
-            <button
-              onClick={() => { setAuthTab('sql_guide'); setErrorMessage(null); }}
-              className={`flex-1 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 ${
-                authTab === 'sql_guide'
-                  ? (darkMode ? 'bg-[#2c2c2c] text-blue-400 shadow-xs font-bold' : 'bg-white text-blue-600 shadow-xs font-bold')
-                  : 'text-[#888] hover:text-[#111] dark:hover:text-white'
-              }`}
-            >
-              <Database size={13} />
-              <span>Cài đặt DB</span>
             </button>
           </div>
 
@@ -653,45 +530,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               </div>
             </form>
-          )}
-
-          {/* TAB 3: SQL SCHEMA GUIDE (FIX DB TABLES & PERMISSIONS) */}
-          {authTab === 'sql_guide' && (
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-              <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
-                darkMode ? 'bg-blue-950/20 border-blue-800/40 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-900'
-              }`}>
-                <div className="font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                  <Terminal size={14} />
-                  <span>Cách khắc phục lỗi Người A tạo task nhưng Người B không thấy:</span>
-                </div>
-                <ol className="list-decimal list-inside space-y-1 text-[11px] opacity-90">
-                  <li>Mở <strong>Supabase Dashboard</strong> của dự án bạn.</li>
-                  <li>Chọn mục <strong>SQL Editor</strong> ở thanh menu bên trái.</li>
-                  <li>Bấm nút <strong>"Sao chép câu lệnh SQL"</strong> bên dưới rồi dán vào và nhấn <strong>Run</strong>.</li>
-                </ol>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-[#888]">Mã SQL tạo bảng & Mở quyền RLS (Public Policy):</span>
-                  <button
-                    type="button"
-                    onClick={handleCopySql}
-                    className="px-2.5 py-1 bg-[#2383e2] hover:bg-[#1b6ec2] text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    {copiedSql ? <Check size={12} /> : <Copy size={12} />}
-                    <span>{copiedSql ? 'Đã sao chép!' : 'Sao chép SQL'}</span>
-                  </button>
-                </div>
-
-                <div className={`p-3 rounded-xl border font-mono text-[10.5px] leading-relaxed overflow-x-auto select-all max-h-56 ${
-                  darkMode ? 'bg-[#151515] border-[#333] text-emerald-400' : 'bg-[#f4f3f0] border-[#ddd] text-emerald-800'
-                }`}>
-                  <pre className="whitespace-pre">{SUPABASE_INIT_SQL}</pre>
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </div>

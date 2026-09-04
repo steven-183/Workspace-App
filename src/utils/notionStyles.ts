@@ -64,11 +64,11 @@ export const NOTION_COLORS: Record<NotionColor, {
     dot: 'bg-[#c14c8a]',
   },
   qanda_pink: {
-    bg: 'bg-[#fff0f2]',
-    text: 'text-[#d63d57]',
-    border: 'border-[#ffa9b2]',
-    badgeBg: 'bg-[#ffa9b2]/30 text-[#b5263f]',
-    dot: 'bg-[#ffa9b2]',
+    bg: 'bg-[#fff0f3]',
+    text: 'text-[#881337]',
+    border: 'border-[#fda4af]',
+    badgeBg: 'bg-[#ffe4e6] text-[#9f1239] border border-[#fecdd3]',
+    dot: 'bg-[#e11d48]',
   },
   red: {
     bg: 'bg-[#fbe4e4]',

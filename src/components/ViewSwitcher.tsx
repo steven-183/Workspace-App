@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FilterOptions, StatusId, TimelineZoom, ViewType } from '../types';
+import { AppTheme, FilterOptions, StatusId, TimelineZoom, ViewType } from '../types';
 import { 
   Kanban, 
   GitCommit, 
@@ -26,6 +26,7 @@ interface ViewSwitcherProps {
   timelineZoom: TimelineZoom;
   onTimelineZoomChange: (zoom: TimelineZoom) => void;
   darkMode: boolean;
+  appTheme?: AppTheme;
   totalTasks: number;
   filteredTasksCount: number;
 }
@@ -47,9 +48,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   timelineZoom,
   onTimelineZoomChange,
   darkMode,
+  appTheme = 'light',
   totalTasks,
   filteredTasksCount,
 }) => {
+  const isPink = appTheme === 'qanda_pink';
   const [showAddViewMenu, setShowAddViewMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
@@ -68,7 +71,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
 
   return (
     <div className={`border-b px-6 sm:px-10 py-1 transition-colors sticky top-0 z-10 backdrop-blur-md ${
-      darkMode ? 'bg-[#191919]/90 border-[#2f2f2f]' : 'bg-[#fbfbfa]/90 border-[#e8e7e4]'
+      isPink 
+        ? 'bg-[#fff5f6]/95 border-[#fda4af]' 
+        : darkMode 
+        ? 'bg-[#191919]/90 border-[#2f2f2f]' 
+        : 'bg-[#fbfbfa]/90 border-[#e8e7e4]'
     }`}>
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         {/* Left: View Tabs */}
@@ -84,15 +91,19 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                 onClick={() => onViewChange(view)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all select-none ${
                   isActive
-                    ? (darkMode 
+                    ? (isPink
+                        ? 'bg-white text-[#9f1239] shadow-xs border border-[#fda4af] ring-1 ring-[#fda4af] font-bold'
+                        : darkMode 
                         ? 'bg-[#2a2a2a] text-white shadow-xs border border-[#3e3e3e]' 
                         : 'bg-white text-[#37352f] shadow-xs border border-[#e3e2e0]')
-                    : (darkMode 
+                    : (isPink
+                        ? 'text-[#881337] hover:text-[#4c0519] hover:bg-[#ffe4e6]'
+                        : darkMode 
                         ? 'text-[#888] hover:text-[#ddd] hover:bg-[#252525]' 
                         : 'text-[#787774] hover:text-[#37352f] hover:bg-[#efedea]')
                 }`}
               >
-                <Icon size={14} className={isActive ? 'text-[#2383e2]' : ''} />
+                <Icon size={14} className={isActive ? (isPink ? 'text-[#e11d48]' : 'text-[#2383e2]') : ''} />
                 <span>{meta.label}</span>
               </button>
             );
@@ -103,7 +114,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               <button
                 onClick={() => setShowAddViewMenu(!showAddViewMenu)}
                 className={`p-1.5 rounded-lg text-xs transition-colors flex items-center gap-1 ${
-                  darkMode ? 'text-[#888] hover:bg-[#262626]' : 'text-[#787774] hover:bg-[#efedea]'
+                  isPink 
+                    ? 'text-[#881337] hover:bg-[#ffe4e6]' 
+                    : darkMode 
+                    ? 'text-[#888] hover:bg-[#262626]' 
+                    : 'text-[#787774] hover:bg-[#efedea]'
                 }`}
                 title="Thêm chế độ xem"
               >
@@ -112,9 +127,13 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
 
               {showAddViewMenu && (
                 <div className={`absolute top-full left-0 mt-1 w-44 rounded-xl shadow-xl border p-1 z-30 ${
-                  darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
+                  isPink 
+                    ? 'bg-white border-[#fda4af]' 
+                    : darkMode 
+                    ? 'bg-[#262626] border-[#383838]' 
+                    : 'bg-white border-[#e3e2e0]'
                 }`}>
-                  <div className="px-2 py-1 text-[10px] font-semibold text-[#9b9a97] uppercase">Thêm chế độ xem</div>
+                  <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Thêm chế độ xem</div>
                   {unusedViews.map((v) => {
                     const meta = VIEW_METADATA[v];
                     const Icon = meta.icon;
@@ -127,10 +146,14 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                           setShowAddViewMenu(false);
                         }}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded-md transition-colors ${
-                          darkMode ? 'hover:bg-[#333] text-[#ddd]' : 'hover:bg-[#f1f1ef] text-[#37352f]'
+                          isPink 
+                            ? 'hover:bg-[#fff0f3] text-[#4c0519]' 
+                            : darkMode 
+                            ? 'hover:bg-[#333] text-[#ddd]' 
+                            : 'hover:bg-[#f1f1ef] text-[#37352f]'
                         }`}
                       >
-                        <Icon size={13} />
+                        <Icon size={13} className={isPink ? 'text-[#e11d48]' : ''} />
                         <span>{meta.label}</span>
                       </button>
                     );
@@ -146,7 +169,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
           {/* Zoom buttons if activeView === 'timeline' */}
           {activeView === 'timeline' && (
             <div className={`flex items-center rounded-lg p-0.5 border text-xs mr-1 ${
-              darkMode ? 'bg-[#242424] border-[#383838]' : 'bg-[#efedea] border-[#e0deda]'
+              isPink 
+                ? 'bg-[#ffe4e6] border-[#fda4af]' 
+                : darkMode 
+                ? 'bg-[#242424] border-[#383838]' 
+                : 'bg-[#efedea] border-[#e0deda]'
             }`}>
               {(['day', 'week', 'month'] as TimelineZoom[]).map((z) => (
                 <button
@@ -154,7 +181,13 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                   onClick={() => onTimelineZoomChange(z)}
                   className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
                     timelineZoom === z
-                      ? (darkMode ? 'bg-[#333] text-white shadow-xs' : 'bg-white text-[#37352f] shadow-xs')
+                      ? (isPink 
+                          ? 'bg-white text-[#9f1239] shadow-xs font-semibold ring-1 ring-[#fda4af]' 
+                          : darkMode 
+                          ? 'bg-[#333] text-white shadow-xs' 
+                          : 'bg-white text-[#37352f] shadow-xs')
+                      : isPink 
+                      ? 'text-[#881337] hover:text-[#4c0519]' 
                       : 'text-[#787774] hover:text-[#37352f]'
                   }`}
                 >
@@ -167,21 +200,27 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
           {/* Quick Search */}
           {showSearchInput ? (
             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs ${
-              darkMode ? 'bg-[#242424] border-[#383838]' : 'bg-white border-[#e3e2e0]'
+              isPink 
+                ? 'bg-white border-[#fda4af]' 
+                : darkMode 
+                ? 'bg-[#242424] border-[#383838]' 
+                : 'bg-white border-[#e3e2e0]'
             }`}>
-              <Search size={13} className="text-[#9b9a97]" />
+              <Search size={13} className={isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'} />
               <input
                 type="text"
                 placeholder="Lọc theo từ khóa..."
                 value={filters.search}
                 onChange={(e) => onUpdateFilters({ search: e.target.value })}
-                className="bg-transparent outline-none text-xs w-32 sm:w-40 text-[#37352f] dark:text-[#ddd]"
+                className={`bg-transparent outline-none text-xs w-32 sm:w-40 ${
+                  isPink ? 'text-[#4c0519] placeholder-[#881337]/60' : darkMode ? 'text-[#ddd]' : 'text-[#37352f]'
+                }`}
                 autoFocus
               />
               {filters.search && (
                 <button 
                   onClick={() => onUpdateFilters({ search: '' })}
-                  className="text-[#9b9a97] hover:text-red-500"
+                  className={isPink ? 'text-[#9f1239] hover:text-red-700' : 'text-[#9b9a97] hover:text-red-500'}
                 >
                   <X size={12} />
                 </button>
@@ -191,7 +230,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
             <button
               onClick={() => setShowSearchInput(true)}
               className={`p-1.5 rounded-lg border text-xs transition-colors ${
-                darkMode ? 'bg-[#242424] border-[#383838] text-[#888] hover:text-white' : 'bg-white border-[#e3e2e0] text-[#787774] hover:text-[#37352f]'
+                isPink 
+                  ? 'bg-white border-[#fda4af] text-[#881337] hover:text-[#4c0519] hover:bg-[#fff0f3]' 
+                  : darkMode 
+                  ? 'bg-[#242424] border-[#383838] text-[#888] hover:text-white' 
+                  : 'bg-white border-[#e3e2e0] text-[#787774] hover:text-[#37352f]'
               }`}
               title="Tìm kiếm"
             >
@@ -205,19 +248,29 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               onClick={() => setShowSortMenu(!showSortMenu)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-colors ${
                 filters.sortBy !== 'order'
-                  ? 'bg-blue-50 border-blue-200 text-[#2383e2] dark:bg-blue-950/40 dark:border-blue-800'
-                  : darkMode ? 'bg-[#242424] border-[#383838] text-[#888]' : 'bg-white border-[#e3e2e0] text-[#787774]'
+                  ? (isPink 
+                      ? 'bg-[#ffe4e6] border-[#fda4af] text-[#9f1239] font-semibold' 
+                      : 'bg-blue-50 border-blue-200 text-[#2383e2] dark:bg-blue-950/40 dark:border-blue-800')
+                  : isPink 
+                  ? 'bg-white border-[#fda4af] text-[#881337] hover:bg-[#fff0f3]' 
+                  : darkMode 
+                  ? 'bg-[#242424] border-[#383838] text-[#888]' 
+                  : 'bg-white border-[#e3e2e0] text-[#787774]'
               }`}
             >
-              <ArrowUpDown size={12} />
+              <ArrowUpDown size={12} className={isPink ? 'text-[#e11d48]' : ''} />
               <span>Sắp xếp</span>
             </button>
 
             {showSortMenu && (
               <div className={`absolute top-full right-0 mt-1 w-48 rounded-xl shadow-xl border p-1 z-30 text-xs ${
-                darkMode ? 'bg-[#262626] border-[#383838] text-[#ddd]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+                isPink 
+                  ? 'bg-white border-[#fda4af] text-[#4c0519]' 
+                  : darkMode 
+                  ? 'bg-[#262626] border-[#383838] text-[#ddd]' 
+                  : 'bg-white border-[#e3e2e0] text-[#37352f]'
               }`}>
-                <div className="px-2 py-1 text-[10px] font-semibold text-[#9b9a97] uppercase">Sắp xếp theo</div>
+                <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Sắp xếp theo</div>
                 {[
                   { id: 'order', label: 'Thứ tự thủ công' },
                   { id: 'dueDate', label: 'Hạn chót (Due Date)' },
@@ -235,7 +288,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                       setShowSortMenu(false);
                     }}
                     className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md transition-colors ${
-                      filters.sortBy === s.id ? 'bg-blue-50 text-[#2383e2] dark:bg-blue-950' : (darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
+                      filters.sortBy === s.id 
+                        ? (isPink ? 'bg-[#ffe4e6] text-[#9f1239] font-semibold' : 'bg-blue-50 text-[#2383e2] dark:bg-blue-950') 
+                        : (isPink ? 'hover:bg-[#fff0f3]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
                     }`}
                   >
                     <span>{s.label}</span>
@@ -254,19 +309,29 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               onClick={() => setShowGroupMenu(!showGroupMenu)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-colors ${
                 filters.groupBy !== 'status'
-                  ? 'bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/40 dark:border-purple-800'
-                  : darkMode ? 'bg-[#242424] border-[#383838] text-[#888]' : 'bg-white border-[#e3e2e0] text-[#787774]'
+                  ? (isPink 
+                      ? 'bg-[#ffe4e6] border-[#fda4af] text-[#9f1239] font-semibold' 
+                      : 'bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/40 dark:border-purple-800')
+                  : isPink 
+                  ? 'bg-white border-[#fda4af] text-[#881337] hover:bg-[#fff0f3]' 
+                  : darkMode 
+                  ? 'bg-[#242424] border-[#383838] text-[#888]' 
+                  : 'bg-white border-[#e3e2e0] text-[#787774]'
               }`}
             >
-              <Layers size={12} />
+              <Layers size={12} className={isPink ? 'text-[#e11d48]' : ''} />
               <span>Nhóm</span>
             </button>
 
             {showGroupMenu && (
               <div className={`absolute top-full right-0 mt-1 w-44 rounded-xl shadow-xl border p-1 z-30 text-xs ${
-                darkMode ? 'bg-[#262626] border-[#383838] text-[#ddd]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+                isPink 
+                  ? 'bg-white border-[#fda4af] text-[#4c0519]' 
+                  : darkMode 
+                  ? 'bg-[#262626] border-[#383838] text-[#ddd]' 
+                  : 'bg-white border-[#e3e2e0] text-[#37352f]'
               }`}>
-                <div className="px-2 py-1 text-[10px] font-semibold text-[#9b9a97] uppercase">Nhóm thẻ theo</div>
+                <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Nhóm thẻ theo</div>
                 {[
                   { id: 'status', label: 'Trạng thái (Status)' },
                   { id: 'priority', label: 'Mức độ ưu tiên' },
@@ -279,7 +344,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                       setShowGroupMenu(false);
                     }}
                     className={`w-full text-left px-2 py-1.5 rounded-md transition-colors ${
-                      filters.groupBy === g.id ? 'bg-purple-50 text-purple-600 dark:bg-purple-950 font-medium' : (darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
+                      filters.groupBy === g.id 
+                        ? (isPink ? 'bg-[#ffe4e6] text-[#9f1239] font-bold' : 'bg-purple-50 text-purple-600 dark:bg-purple-950 font-medium') 
+                        : (isPink ? 'hover:bg-[#fff0f3]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
                     }`}
                   >
                     {g.label}
@@ -300,7 +367,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                 tagIds: [],
                 dateFilter: 'all',
               })}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200 text-xs hover:bg-red-100 transition-colors"
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors ${
+                isPink 
+                  ? 'bg-[#ffe4e6] text-[#9f1239] border-[#fda4af] hover:bg-[#fecdd3]' 
+                  : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+              }`}
               title="Xóa tất cả bộ lọc"
             >
               <span>{filteredTasksCount}/{totalTasks} thẻ</span>
