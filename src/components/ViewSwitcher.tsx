@@ -66,15 +66,14 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
     filters.statuses.length > 0 ||
     filters.priorities.length > 0 ||
     filters.assigneeIds.length > 0 ||
-    filters.tagIds.length > 0 ||
     filters.dateFilter !== 'all';
 
   return (
-    <div className={`border-b px-6 sm:px-10 py-1 transition-colors sticky top-0 z-10 backdrop-blur-md ${
+    <div className={`border-b px-6 sm:px-10 py-1 transition-colors sticky top-0 z-10 backdrop-blur-xl ${
       isPink 
         ? 'bg-[#fff5f6]/95 border-[#fda4af]' 
         : darkMode 
-        ? 'bg-[#191919]/90 border-[#2f2f2f]' 
+        ? 'bg-[#0b0c0e]/85 border-white/[0.06]' 
         : 'bg-[#fbfbfa]/90 border-[#e8e7e4]'
     }`}>
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -94,12 +93,12 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                     ? (isPink
                         ? 'bg-white text-[#9f1239] shadow-xs border border-[#fda4af] ring-1 ring-[#fda4af] font-bold'
                         : darkMode 
-                        ? 'bg-[#2a2a2a] text-white shadow-xs border border-[#3e3e3e]' 
+                        ? 'bg-white/[0.09] text-white shadow-xs border border-white/10' 
                         : 'bg-white text-[#37352f] shadow-xs border border-[#e3e2e0]')
                     : (isPink
                         ? 'text-[#881337] hover:text-[#4c0519] hover:bg-[#ffe4e6]'
                         : darkMode 
-                        ? 'text-[#888] hover:text-[#ddd] hover:bg-[#252525]' 
+                        ? 'text-[#a1a1aa] hover:text-[#f4f4f5] hover:bg-white/[0.04]' 
                         : 'text-[#787774] hover:text-[#37352f] hover:bg-[#efedea]')
                 }`}
               >
@@ -126,14 +125,14 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               </button>
 
               {showAddViewMenu && (
-                <div className={`absolute top-full left-0 mt-1 w-44 rounded-xl shadow-xl border p-1 z-30 ${
+                <div className={`absolute top-full left-0 mt-1 w-44 rounded-xl shadow-2xl border p-1 z-30 backdrop-blur-xl ${
                   isPink 
-                    ? 'bg-white border-[#fda4af]' 
+                    ? 'bg-white/95 border-[#fda4af]' 
                     : darkMode 
-                    ? 'bg-[#262626] border-[#383838]' 
-                    : 'bg-white border-[#e3e2e0]'
+                    ? 'bg-[#121316]/95 border-white/10 linear-modal-dark' 
+                    : 'bg-white/95 border-[#e3e2e0] shadow-lg'
                 }`}>
-                  <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Thêm chế độ xem</div>
+                  <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : darkMode ? 'text-[#71717a]' : 'text-[#9b9a97]'}`}>Thêm chế độ xem</div>
                   {unusedViews.map((v) => {
                     const meta = VIEW_METADATA[v];
                     const Icon = meta.icon;

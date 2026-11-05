@@ -17,7 +17,7 @@ import { TrashArchiveModal } from './components/TrashArchiveModal';
 import { ToastNotificationContainer } from './components/ToastNotificationContainer';
 import { Lock, LogIn, ShieldAlert } from 'lucide-react';
 import { addDays, getTodayString, isDueThisWeek, isDueToday, isOverdue } from './utils/dateUtils';
-import { getStoredNotifications, saveStoredNotifications, triggerToast, dispatchTaskEvent } from './utils/notificationService';
+import { getStoredNotifications, saveStoredNotifications, triggerToast, dispatchTaskEvent, sendBrowserNotification } from './utils/notificationService';
 import { 
   getSupabase, 
   fetchAllProjectsFromSupabase, 
@@ -280,11 +280,24 @@ export default function App() {
           setActiveSection('project');
           setSelectedTaskProjectId(p.id);
           setSelectedTask(targetTask);
-          break;
         }
       }
     }
   };
+
+  // Listen for navigation events triggered from external notifications (desktop click, etc.)
+  useEffect(() => {
+    const handleNavEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ projectId: string; taskId: string }>;
+      if (custom.detail?.projectId && custom.detail?.taskId) {
+        handleOpenNotificationTask(custom.detail.projectId, custom.detail.taskId);
+      }
+    };
+    window.addEventListener('app_navigate_to_task', handleNavEvent);
+    return () => {
+      window.removeEventListener('app_navigate_to_task', handleNavEvent);
+    };
+  }, [projects]);
 
   // Filters & Sorting state for Project View
   const [filters, setFilters] = useState<FilterOptions>({
@@ -398,6 +411,12 @@ export default function App() {
                 );
                 if (myNotifs.length > 0) {
                   window.dispatchEvent(new CustomEvent('app_show_toast', { detail: myNotifs[0] }));
+                  sendBrowserNotification(myNotifs[0].title || 'Thông báo công việc mới', {
+                    body: `${myNotifs[0].actor?.name ? myNotifs[0].actor.name + ': ' : ''}${myNotifs[0].message}`,
+                    tag: myNotifs[0].id,
+                    taskId: myNotifs[0].taskId,
+                    projectId: myNotifs[0].projectId,
+                  });
                 }
               }
             }
@@ -1091,10 +1110,29 @@ export default function App() {
 
         const finalTasks = [...otherTasks.filter((t) => t.status !== targetStatus), ...colTasks];
         syncTaskToSupabase(activeProjectId, updatedTargetTask);
+
+        // Notify all stakeholders (Reviewer/Creator, Assignees, Followers)
+        if (currentUser && targetTask.status !== targetStatus) {
+          const isCompleted = targetStatus === 'done';
+          const targetCol = p.columns.find((c) => c.id === targetStatus);
+          const colName = targetCol?.title || targetStatus;
+
+          dispatchTaskEvent({
+            project: p,
+            task: updatedTargetTask,
+            actor: currentUser,
+            type: 'status_change',
+            title: isCompleted ? 'Đã hoàn thành công việc' : 'Thay đổi trạng thái công việc',
+            message: isCompleted 
+              ? `${currentUser.name} đã hoàn thành công việc "${updatedTargetTask.title}"` 
+              : `${currentUser.name} đã chuyển "${updatedTargetTask.title}" sang trạng thái "${colName}"`,
+          });
+        }
+
         return { ...p, tasks: finalTasks };
       })
     );
-  }, [activeProjectId]);
+  }, [activeProjectId, currentUser]);
 
   // Timeline dragging & resizing
   const handleUpdateTaskDates = useCallback((taskId: string, newStart: string, newDue: string) => {
@@ -1180,10 +1218,10 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className={`w-screen h-screen flex flex-col items-center justify-center p-6 text-center font-sans ${
-        darkMode ? 'bg-[#191919] text-[#e0e0e0]' : 'bg-[#f7f6f3] text-[#37352f]'
+        darkMode ? 'bg-[#0b0c0e] text-[#f0f0f2]' : 'bg-[#f7f6f3] text-[#37352f]'
       }`}>
         <div className={`max-w-md w-full p-8 rounded-2xl border shadow-2xl flex flex-col items-center gap-5 transition-all ${
-          darkMode ? 'bg-[#202020] border-[#333] text-[#e0e0e0]' : 'bg-white border-[#e8e7e4] text-[#37352f]'
+          darkMode ? 'bg-[#121316] border-white/[0.08] text-[#f0f0f2] shadow-black/80' : 'bg-white border-[#e8e7e4] text-[#37352f]'
         }`}>
           <div className="w-16 h-16 rounded-2xl bg-blue-500/10 text-[#2383e2] flex items-center justify-center">
             <Lock size={32} />
@@ -1220,6 +1258,9 @@ export default function App() {
             setCurrentUser(null);
             setShowAuthModal(true);
           }}
+          onUpdateUser={(updated) => {
+            setCurrentUser(updated);
+          }}
           darkMode={darkMode}
         />
       </div>
@@ -1230,7 +1271,7 @@ export default function App() {
     <div className={`w-screen h-screen flex overflow-hidden font-sans ${
       appTheme === 'qanda_pink'
         ? 'bg-[#fff5f6] text-[#37352f]'
-        : darkMode ? 'bg-[#191919] text-[#e0e0e0]' : 'bg-[#ffffff] text-[#37352f]'
+        : darkMode ? 'bg-[#0b0c0e] text-[#f0f0f2]' : 'bg-[#ffffff] text-[#37352f]'
     }`}>
       {/* Notion Sidebar */}
       <Sidebar
@@ -1476,6 +1517,9 @@ export default function App() {
           await signOutSupabase();
           setCurrentUser(null);
           setShowAuthModal(true);
+        }}
+        onUpdateUser={(updated) => {
+          setCurrentUser(updated);
         }}
         darkMode={darkMode}
       />

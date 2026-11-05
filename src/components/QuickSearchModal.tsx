@@ -54,7 +54,6 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
     p.tasks.forEach((t) => {
       if (
         t.title.toLowerCase().includes(normalizedQuery) ||
-        t.tags?.some((tag) => tag.label.toLowerCase().includes(normalizedQuery)) ||
         t.subtasks?.some((st) => st.text.toLowerCase().includes(normalizedQuery))
       ) {
         matchingTasks.push({ project: p, task: t });
@@ -63,30 +62,30 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
         className={`w-full max-w-xl rounded-2xl shadow-2xl border overflow-hidden flex flex-col max-h-[500px] ${
-          darkMode ? 'bg-[#202020] border-[#333] text-white' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+          darkMode ? 'bg-[#121316] border-white/10 text-white shadow-black/90' : 'bg-white border-[#e3e2e0] text-[#37352f]'
         }`}
       >
         {/* Search input header */}
         <div className={`p-3.5 border-b flex items-center gap-3 ${
-          darkMode ? 'border-[#333] bg-[#242424]' : 'border-[#ededeb] bg-[#fbfbfa]'
+          darkMode ? 'border-white/[0.07] bg-[#0d0e11]' : 'border-[#ededeb] bg-[#fbfbfa]'
         }`}>
-          <Search size={18} className="text-[#9b9a97]" />
+          <Search size={18} className={darkMode ? 'text-[#a1a1aa]' : 'text-[#9b9a97]'} />
           <input
             type="text"
             placeholder="Tìm kiếm công việc, dự án, thẻ nhãn hoặc nội dung..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full bg-transparent outline-none text-sm placeholder-[#9b9a97]"
+            className="w-full bg-transparent outline-none text-sm placeholder-[#71717a] text-[#f4f4f5]"
             autoFocus
           />
           <button
             onClick={onClose}
             className={`p-1 rounded-md transition-colors ${
-              darkMode ? 'hover:bg-[#333] text-[#aaa]' : 'hover:bg-[#efedea] text-[#787774]'
+              darkMode ? 'hover:bg-white/[0.08] text-[#a1a1aa] hover:text-white' : 'hover:bg-[#efedea] text-[#787774]'
             }`}
           >
             <X size={16} />

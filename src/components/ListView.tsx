@@ -70,19 +70,7 @@ export const ListView: React.FC<ListViewProps> = ({
                   {task.title}
                 </span>
 
-                {/* Tags */}
-                {task.tags && task.tags.length > 0 && (
-                  <div className="hidden sm:flex items-center gap-1 shrink-0">
-                    {task.tags.slice(0, 2).map((t) => (
-                      <span
-                        key={t.id}
-                        className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${NOTION_COLORS[t.color].badgeBg}`}
-                      >
-                        {t.label}
-                      </span>
-                    ))}
-                  </div>
-                )}
+
               </div>
 
               {/* Right meta: Status, Priority, DueDate, Assignees */}

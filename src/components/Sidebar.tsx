@@ -165,44 +165,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Theme styling helpers (ensuring deeper pink, high contrast text and aesthetic design)
   const isPink = appTheme === 'qanda_pink';
 
-  // Sidebar container styles
+  // Sidebar container styles (Frosted Glass & Depth)
   const sidebarContainerClass = isPink
-    ? 'bg-[#ffd2d8] border-[#fda4af] text-[#4c0519]'
+    ? 'bg-[#ffd2d8]/90 backdrop-blur-xl border-[#fda4af] text-[#4c0519]'
     : darkMode
-      ? 'bg-[#202020] border-[#2f2f2f] text-[#d4d4d4]'
-      : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#37352f]';
+      ? 'bg-[#0e0f12]/85 backdrop-blur-xl border-white/[0.07] text-[#e4e4e7] shadow-[inset_-1px_0_0_0_rgba(255,255,255,0.03)]'
+      : 'bg-[#f7f6f3]/85 backdrop-blur-xl border-[#e8e7e4] text-[#37352f] shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.02)]';
 
   // Text color styles
   const textPrimary = isPink
     ? 'text-[#4c0519]'
-    : darkMode ? 'text-white' : 'text-[#37352f]';
+    : darkMode ? 'text-[#f4f4f5]' : 'text-[#37352f]';
 
   const textMuted = isPink
     ? 'text-[#881337]'
-    : darkMode ? 'text-[#9b9a97]' : 'text-[#787774]';
+    : darkMode ? 'text-[#a1a1aa]' : 'text-[#787774]';
 
   const sectionHeaderColor = isPink
     ? 'text-[#9f1239]'
-    : darkMode ? 'text-[#a0a0a0]' : 'text-[#787774]';
+    : darkMode ? 'text-[#71717a]' : 'text-[#787774]';
 
   // Hover & Active items
   const itemHover = isPink
     ? 'hover:bg-[#fff0f3]/85 text-[#4c0519]'
-    : darkMode ? 'hover:bg-[#262626] text-[#b4b4b4]' : 'hover:bg-[#efedea] text-[#5a5a58]';
+    : darkMode ? 'hover:bg-white/[0.05] text-[#f4f4f5]' : 'hover:bg-[#efedea] text-[#5a5a58]';
 
   const itemActive = isPink
     ? 'bg-white text-[#9f1239] font-bold shadow-xs ring-1 ring-[#fda4af]'
-    : darkMode ? 'bg-[#2c2c2c] text-white font-medium shadow-xs' : 'bg-[#e9e8e4] text-[#37352f] font-semibold';
+    : darkMode ? 'bg-white/[0.08] text-white font-medium shadow-xs border border-white/[0.08]' : 'bg-[#e9e8e4] text-[#37352f] font-semibold';
 
   // Badges & Counters
   const badgeClass = isPink
     ? 'bg-[#ffe4e6] text-[#9f1239] border border-[#fecdd3]'
-    : darkMode ? 'bg-[#2a2a2a] text-[#888]' : 'bg-[#e2e1de] text-[#787774]';
+    : darkMode ? 'bg-white/[0.06] text-[#a1a1aa] border border-white/[0.05]' : 'bg-[#e2e1de] text-[#787774]';
 
   // Border dividers
   const dividerClass = isPink
     ? 'border-[#fda4af]'
-    : darkMode ? 'border-[#2f2f2f]' : 'border-[#e8e7e4]';
+    : darkMode ? 'border-white/[0.06]' : 'border-[#e8e7e4]';
 
   return (
     <motion.aside
@@ -453,18 +453,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     Ctrl+K
                   </span>
                 </button>
-
-                <button
-                  onClick={() => onOpenTrashArchive('archive')}
-                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
-                    isPink ? 'hover:bg-[#fff0f3]/80 text-[#4c0519]' : darkMode ? 'hover:bg-[#2c2c2c] text-[#a3a3a3]' : 'hover:bg-[#ebeae7] text-[#5a5a58]'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Archive size={14} className={isPink ? 'text-rose-600' : 'text-amber-500'} />
-                    <span>Kho lưu trữ & Thùng rác</span>
-                  </div>
-                </button>
               </div>
             </div>
 
@@ -473,10 +461,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               
               {/* ================= 1. PERSONAL BOARD (CÁ NHÂN) ================= */}
               {currentUser && personalProject && (
-                <div className="space-y-1">
+                <div className={`rounded-xl border p-1 transition-all ${
+                  isPink 
+                    ? 'bg-[#ffe4e6]/30 border-[#fecdd3]' 
+                    : darkMode 
+                    ? 'bg-gradient-to-r from-blue-950/20 to-transparent border-blue-500/20 shadow-[inset_0_1px_0_0_rgba(59,130,246,0.1)]' 
+                    : 'bg-blue-50/40 border-blue-100'
+                }`}>
                   <div
                     className={`group/personal flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer select-none ${
-                      isPink ? 'hover:bg-[#fff0f3]/80' : darkMode ? 'hover:bg-[#282828]' : 'hover:bg-[#ebeae7]'
+                      isPink ? 'hover:bg-[#fff0f3]/80' : darkMode ? 'hover:bg-white/[0.04]' : 'hover:bg-blue-50/80'
                     }`}
                     onClick={() => toggleTeam('personal')}
                   >
@@ -484,13 +478,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span className={`${textMuted} inline-flex transition-transform duration-200 transform ${collapsedTeams.personal ? '' : 'rotate-90'}`}>
                         <ChevronRight size={13} />
                       </span>
-                      <UserIcon size={13} className={isPink ? 'text-[#be123c]' : 'text-[#2383e2]'} />
-                      <span className={`font-bold text-[11px] tracking-wide uppercase truncate ${sectionHeaderColor}`}>
+                      <div className="w-5 h-5 rounded-md bg-blue-500/15 text-blue-500 flex items-center justify-center shrink-0">
+                        <UserIcon size={12} className={isPink ? 'text-[#be123c]' : 'text-[#2383e2]'} />
+                      </div>
+                      <span className={`font-bold text-[11px] tracking-wide uppercase truncate ${
+                        isPink ? 'text-[#9f1239]' : darkMode ? 'text-blue-300' : 'text-blue-700'
+                      }`}>
                         Cá nhân
                       </span>
                     </div>
 
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${badgeClass}`}>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-semibold ${
+                      isPink 
+                        ? 'bg-[#ffe4e6] text-[#9f1239]' 
+                        : darkMode ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-blue-100 text-blue-700'
+                    }`}>
                       {(personalProject.tasks || []).filter(t => !t.isDeleted).length}
                     </span>
                   </div>
@@ -503,11 +505,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.22, ease: [0.04, 0.62, 0.23, 0.98] }}
-                        className="space-y-0.5 pl-2 overflow-hidden"
+                        className="space-y-0.5 pt-1 overflow-hidden"
                       >
                         <div
                           onClick={() => onSelectProject(personalProject.id)}
-                          className={`group flex items-center justify-between px-2 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${
+                          className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
                             activeSection === 'project' && activeProjectId === personalProject.id
                               ? itemActive
                               : itemHover
@@ -582,17 +584,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
 
               {/* ================= 3. FIXED TEAMS ================= */}
-              <div className="space-y-4 pt-1">
+              <div className="space-y-3 pt-1">
                 {FIXED_TEAMS.map((team) => {
                   const teamProjects = regularProjects.filter((p) => getProjectTeamId(p) === team.id);
                   const isTeamCollapsed = collapsedTeams[team.id];
 
+                  // Highlight styling per team
+                  const teamHighlightStyle = team.id === 'performance_marketing'
+                    ? (darkMode ? 'bg-gradient-to-r from-amber-950/20 to-transparent border-amber-500/20 text-amber-400' : 'bg-amber-50/40 border-amber-200/60 text-amber-700')
+                    : team.id === 'book_growth'
+                    ? (darkMode ? 'bg-gradient-to-r from-purple-950/20 to-transparent border-purple-500/20 text-purple-400' : 'bg-purple-50/40 border-purple-200/60 text-purple-700')
+                    : (darkMode ? 'bg-gradient-to-r from-emerald-950/20 to-transparent border-emerald-500/20 text-emerald-400' : 'bg-emerald-50/40 border-emerald-200/60 text-emerald-700');
+
+                  const teamBadgeStyle = team.id === 'performance_marketing'
+                    ? (darkMode ? 'bg-amber-500/15 text-amber-300 border-amber-500/30' : 'bg-amber-100 text-amber-800')
+                    : team.id === 'book_growth'
+                    ? (darkMode ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-purple-100 text-purple-800')
+                    : (darkMode ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-emerald-100 text-emerald-800');
+
                   return (
-                    <div key={team.id} className="space-y-1">
+                    <div key={team.id} className={`rounded-xl border p-1 transition-all ${
+                      isPink ? 'bg-[#fff5f6]/40 border-[#fecdd3]' : teamHighlightStyle
+                    }`}>
                       {/* Team Section Header with smooth rotating arrow */}
                       <div
                         className={`group/team flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer select-none ${
-                          isPink ? 'hover:bg-[#fff0f3]/80' : darkMode ? 'hover:bg-[#282828]' : 'hover:bg-[#ebeae7]'
+                          isPink ? 'hover:bg-[#fff0f3]/80' : darkMode ? 'hover:bg-white/[0.04]' : 'hover:bg-white/60'
                         }`}
                         onClick={() => toggleTeam(team.id)}
                       >
@@ -601,13 +618,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <ChevronRight size={13} />
                           </span>
                           <span className="text-sm shrink-0">{team.icon}</span>
-                          <span className={`font-bold text-[11px] tracking-wide uppercase truncate ${sectionHeaderColor}`}>
+                          <span className="font-bold text-[11px] tracking-wide uppercase truncate">
                             {team.name}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-1">
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${badgeClass}`}>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-semibold border ${
+                            isPink ? 'bg-[#ffe4e6] text-[#9f1239] border-[#fecdd3]' : teamBadgeStyle
+                          }`}>
                             {teamProjects.length}
                           </span>
                           <button
@@ -618,7 +637,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             className={`p-1 rounded opacity-70 group-hover/team:opacity-100 transition-all ${
                               isPink
                                 ? 'hover:bg-[#fff0f3] text-[#4c0519]'
-                                : darkMode ? 'hover:bg-[#383838] text-white' : 'hover:bg-[#dbdad7] text-[#37352f]'
+                                : darkMode ? 'hover:bg-white/[0.08] text-white' : 'hover:bg-black/5 text-[#37352f]'
                             }`}
                             title={`Tạo bảng quản lý mới cho team ${team.name}`}
                           >
@@ -733,10 +752,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       animate={{ opacity: 1, height: 'auto', scale: 1 }}
                       exit={{ opacity: 0, height: 0, scale: 0.98 }}
                       transition={{ duration: 0.2 }}
-                      className={`p-2 rounded-xl my-1.5 text-xs space-y-1 border shadow-lg overflow-hidden ${
+                      className={`p-2 rounded-xl my-1.5 text-xs space-y-1 border shadow-2xl overflow-hidden ${
                         isPink 
                           ? 'bg-[#fff5f6] border-[#fda4af]' 
-                          : darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
+                          : darkMode ? 'bg-[#141519] border-white/10 shadow-black/80' : 'bg-white border-[#e3e2e0]'
                       }`}
                     >
                       {/* Theme Selection */}
@@ -754,7 +773,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             className={`flex flex-col items-center justify-center p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
                               appTheme === 'light'
                                 ? 'bg-white border-[#2383e2] text-[#2383e2] shadow-xs'
-                                : darkMode ? 'bg-[#1e1e1e] border-[#383838] text-[#888] hover:text-white' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
+                                : darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#a1a1aa] hover:text-white hover:bg-white/[0.08]' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
                             }`}
                             title="Giao diện Sáng"
                           >
@@ -769,13 +788,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }}
                             className={`flex flex-col items-center justify-center p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
                               appTheme === 'dark'
-                                ? 'bg-[#2a2a2a] border-[#2383e2] text-white shadow-xs'
-                                : darkMode ? 'bg-[#1e1e1e] border-[#383838] text-[#888] hover:text-white' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
+                                ? 'bg-blue-500/15 border-blue-500/50 text-blue-400 shadow-xs'
+                                : darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#a1a1aa] hover:text-white hover:bg-white/[0.08]' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
                             }`}
-                            title="Giao diện Tối"
+                            title="Giao diện Tối Deep Charcoal"
                           >
                             <Moon size={14} className="mb-0.5 text-blue-400" />
-                            <span>Tối</span>
+                            <span>Tối OLED</span>
                           </button>
 
                           <button
@@ -785,7 +804,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             className={`flex flex-col items-center justify-center p-1.5 rounded-lg border text-[10px] font-bold transition-all relative overflow-hidden ${
                               appTheme === 'qanda_pink'
                                 ? 'bg-white border-[#e11d48] text-[#9f1239] shadow-xs ring-1 ring-[#e11d48]'
-                                : darkMode ? 'bg-[#1e1e1e] border-[#383838] text-[#FFA9B2] hover:bg-[#2e181c]' : 'bg-[#fff5f6] border-transparent text-[#d63d57] hover:bg-[#ffe6e9]'
+                                : darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#FFA9B2] hover:bg-rose-500/10' : 'bg-[#fff5f6] border-transparent text-[#d63d57] hover:bg-[#ffe6e9]'
                             }`}
                             title="Giao diện đặc trưng Aria Pink"
                           >
@@ -795,12 +814,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                       </div>
 
-                      <div className={`my-1 border-t ${isPink ? 'border-[#fda4af]' : darkMode ? 'border-[#383838]' : 'border-[#eee]'}`} />
+                      <div className={`my-1 border-t ${isPink ? 'border-[#fda4af]' : darkMode ? 'border-white/[0.06]' : 'border-[#eee]'}`} />
 
                       <button
                         onClick={onExportData}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors ${
-                          isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]'
+                          isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-white/[0.06] text-[#e4e4e7]' : 'hover:bg-[#f1f1ef]'
                         }`}
                       >
                         <Download size={13} />
@@ -810,21 +829,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         onClick={onImportData}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors ${
-                          isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]'
+                          isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-white/[0.06] text-[#e4e4e7]' : 'hover:bg-[#f1f1ef]'
                         }`}
                       >
                         <Upload size={13} />
                         <span>Khôi phục JSON</span>
                       </button>
 
-                      <div className={`my-1 border-t ${isPink ? 'border-[#fda4af]' : darkMode ? 'border-[#383838]' : 'border-[#eee]'}`} />
+                      <div className={`my-1 border-t ${isPink ? 'border-[#fda4af]' : darkMode ? 'border-white/[0.06]' : 'border-[#eee]'}`} />
 
                       <button
-                        onClick={onResetData}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
+                        onClick={() => {
+                          setShowSettingsMenu(false);
+                          onOpenTrashArchive('archive');
+                        }}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors ${
+                          isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-white/[0.06] text-[#e4e4e7]' : 'hover:bg-[#f1f1ef]'
+                        }`}
                       >
-                        <RotateCcw size={13} />
-                        <span>Đặt lại dữ liệu mẫu</span>
+                        <Archive size={13} className={isPink ? 'text-rose-600' : 'text-amber-500'} />
+                        <span>Kho lưu trữ & Thùng rác</span>
                       </button>
                     </motion.div>
                   )}

@@ -18,8 +18,17 @@ import {
   signInWithEmail, 
   signUpWithEmail, 
   resendConfirmationEmail,
-  getSupabase 
+  getSupabase,
+  upsertUserProfile
 } from '../lib/supabase';
+import { convertGoogleDriveImageUrl } from '../utils/googleDriveUtils';
+import { 
+  Camera, 
+  Check, 
+  ExternalLink, 
+  ImageIcon, 
+  RefreshCw 
+} from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -27,6 +36,7 @@ interface AuthModalProps {
   currentUser: User | null;
   onLogin: (user: User) => void;
   onLogout: () => void;
+  onUpdateUser?: (updated: User) => void;
   darkMode: boolean;
 }
 
@@ -38,6 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   currentUser,
   onLogin,
   onLogout,
+  onUpdateUser,
   darkMode,
 }) => {
   const [authTab, setAuthTab] = useState<AuthTab>('signin');
@@ -46,6 +57,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Avatar editing state for logged-in user
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [avatarUrlInput, setAvatarUrlInput] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -58,8 +77,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMessage(null);
       setSuccessMessage(null);
       setIsEmailUnconfirmed(false);
+      setIsEditingAvatar(false);
+      setAvatarError(null);
+      setAvatarSuccess(null);
+      if (currentUser?.avatar) {
+        setAvatarUrlInput(currentUser.avatar);
+        setAvatarPreview(currentUser.avatar);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, currentUser]);
 
   if (!isOpen) return null;
 
@@ -281,23 +307,204 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Current User Card when logged in (shown if on signin tab) */}
           {currentUser && authTab === 'signin' && (
             <div className="space-y-4">
-              <div className={`p-4 rounded-xl border flex items-center gap-3.5 ${
-                darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-[#f7f6f3] border-[#e8e7e4]'
+              <div className={`p-4 rounded-xl border transition-all ${
+                darkMode ? 'bg-[#15171c] border-white/10 linear-card-dark' : 'bg-[#f7f6f3] border-[#e8e7e4] linear-card-light'
               }`}>
-                <img 
-                  src={currentUser.avatar} 
-                  alt={currentUser.name}
-                  referrerPolicy="no-referrer"
-                  className="w-12 h-12 rounded-full ring-2 ring-[#2383e2]/40 object-cover shrink-0"
-                />
-                <div className="text-left overflow-hidden flex-1">
-                  <div className="text-sm font-bold truncate text-[#37352f] dark:text-white">{currentUser.name}</div>
-                  <div className="text-xs text-[#9b9a97] truncate mt-0.5">{currentUser.email}</div>
-                  <div className="inline-flex items-center gap-1.5 mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Đang đăng nhập</span>
+                <div className="flex items-center gap-3.5">
+                  <div className="relative group shrink-0">
+                    <img 
+                      src={avatarPreview || currentUser.avatar} 
+                      alt={currentUser.name}
+                      referrerPolicy="no-referrer"
+                      className="w-14 h-14 rounded-2xl ring-2 ring-[#2383e2]/40 object-cover shadow-sm bg-blue-500/10"
+                      onError={() => {
+                        // Fallback if custom URL fails to load
+                        if (avatarPreview && avatarPreview !== currentUser.avatar) {
+                          setAvatarError('Không thể tải hình ảnh từ đường liên kết này. Vui lòng kiểm tra lại quyền truy cập hoặc link ảnh.');
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingAvatar(!isEditingAvatar);
+                        setAvatarError(null);
+                        setAvatarSuccess(null);
+                        if (!isEditingAvatar) {
+                          setAvatarUrlInput(currentUser.avatar || '');
+                          setAvatarPreview(currentUser.avatar || '');
+                        }
+                      }}
+                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#2383e2] hover:bg-[#1d6ec0] text-white flex items-center justify-center shadow-md transition-all hover:scale-110"
+                      title="Chỉnh sửa ảnh đại diện"
+                    >
+                      <Camera size={13} />
+                    </button>
+                  </div>
+
+                  <div className="text-left overflow-hidden flex-1 min-w-0">
+                    <div className="text-sm font-bold truncate text-[#37352f] dark:text-[#f4f4f5]">{currentUser.name}</div>
+                    <div className="text-xs text-[#9b9a97] truncate mt-0.5">{currentUser.email}</div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Đang hoạt động</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingAvatar(!isEditingAvatar);
+                          setAvatarError(null);
+                          setAvatarSuccess(null);
+                        }}
+                        className="text-[11px] font-medium text-[#2383e2] hover:underline"
+                      >
+                        {isEditingAvatar ? 'Đóng sửa ảnh' : 'Đổi ảnh đại diện'}
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* Avatar Edit Form (Supports Google Drive link & Direct URLs) */}
+                {isEditingAvatar && (
+                  <div className={`mt-3.5 pt-3.5 border-t space-y-3 ${
+                    darkMode ? 'border-white/[0.08]' : 'border-[#e8e7e4]'
+                  }`}>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold flex items-center gap-1.5 text-[#37352f] dark:text-white">
+                          <ImageIcon size={13} className="text-[#2383e2]" />
+                          <span>Link ảnh đại diện (Google Drive hoặc URL)</span>
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        <input
+                          type="url"
+                          placeholder="Dán link Google Drive (ví dụ: https://drive.google.com/file/d/...)"
+                          value={avatarUrlInput}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setAvatarUrlInput(raw);
+                            setAvatarError(null);
+                            setAvatarSuccess(null);
+
+                            if (!raw.trim()) {
+                              setAvatarPreview('');
+                              return;
+                            }
+
+                            // Convert Google Drive link or standard direct URL
+                            const { directUrl } = convertGoogleDriveImageUrl(raw);
+                            setAvatarPreview(directUrl);
+                          }}
+                          className={`w-full px-3 py-2 text-xs rounded-xl border outline-none transition-all ${
+                            darkMode 
+                              ? 'bg-[#121316] border-white/10 text-white focus:border-[#2383e2]' 
+                              : 'bg-white border-[#cfceca] text-[#37352f] focus:border-[#2383e2] shadow-xs'
+                          }`}
+                        />
+                      </div>
+
+                      <p className="text-[11px] text-[#9b9a97] leading-relaxed">
+                        💡 <strong>Mẹo với Google Drive:</strong> Bạn chỉ cần sao chép liên kết chia sẻ bất kỳ của tệp ảnh trên Drive và đặt quyền <span className="underline font-medium">"Bất kỳ ai có đường liên kết"</span>. Hệ thống sẽ tự động tối ưu link xem trực tiếp siêu nhẹ.
+                      </p>
+                    </div>
+
+                    {/* Feedback inside avatar editor */}
+                    {avatarError && (
+                      <div className="text-[11px] text-red-500 bg-red-50 dark:bg-red-950/40 p-2 rounded-lg border border-red-200 dark:border-red-900/60">
+                        {avatarError}
+                      </div>
+                    )}
+                    {avatarSuccess && (
+                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-1.5">
+                        <Check size={12} />
+                        <span>{avatarSuccess}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={isSavingAvatar}
+                        onClick={async () => {
+                          if (!avatarUrlInput.trim()) {
+                            setAvatarError('Vui lòng nhập đường link ảnh.');
+                            return;
+                          }
+
+                          const { directUrl } = convertGoogleDriveImageUrl(avatarUrlInput);
+                          if (!directUrl) {
+                            setAvatarError('Đường dẫn ảnh không hợp lệ.');
+                            return;
+                          }
+
+                          setIsSavingAvatar(true);
+                          setAvatarError(null);
+
+                          try {
+                            const updatedUser: User = {
+                              ...currentUser,
+                              avatar: directUrl,
+                            };
+
+                            // Update in Supabase profile & metadata if connected
+                            const supabase = getSupabase();
+                            if (supabase) {
+                              await upsertUserProfile(updatedUser);
+                              await supabase.auth.updateUser({
+                                data: { avatar_url: directUrl },
+                              });
+                            }
+
+                            // Update locally via callback
+                            if (onUpdateUser) {
+                              onUpdateUser(updatedUser);
+                            }
+
+                            setIsSavingAvatar(false);
+                            setAvatarSuccess('Đã cập nhật ảnh đại diện thành công!');
+                            setTimeout(() => {
+                              setIsEditingAvatar(false);
+                              setAvatarSuccess(null);
+                            }, 1200);
+                          } catch (err: any) {
+                            setIsSavingAvatar(false);
+                            setAvatarError(err?.message || 'Có lỗi xảy ra khi lưu ảnh đại diện.');
+                          }
+                        }}
+                        className="flex-1 py-2 px-3 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-bold rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isSavingAvatar ? (
+                          <RefreshCw size={13} className="animate-spin" />
+                        ) : (
+                          <Check size={13} strokeWidth={2.5} />
+                        )}
+                        <span>Lưu ảnh đại diện</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Reset to Dicebear initials avatar based on current name
+                          const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name)}&backgroundColor=2383e2`;
+                          setAvatarUrlInput(defaultAvatar);
+                          setAvatarPreview(defaultAvatar);
+                        }}
+                        className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                          darkMode 
+                            ? 'border-white/10 text-[#a1a1aa] hover:text-white hover:bg-white/[0.06]' 
+                            : 'border-[#cfceca] text-[#787774] hover:text-black hover:bg-black/5'
+                        }`}
+                        title="Dùng avatar chữ cái mặc định"
+                      >
+                        Mặc định
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-1">

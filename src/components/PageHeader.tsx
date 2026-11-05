@@ -65,16 +65,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <button
               onClick={() => onUpdateProject({ isFavorite: !project.isFavorite })}
-              className={`p-2 rounded-lg border text-xs transition-colors flex items-center gap-1.5 ${
+              className={`p-2 rounded-lg border text-xs transition-all flex items-center gap-1.5 ${
                 project.isFavorite
                   ? (isPink 
                       ? 'bg-[#ffe4e6] border-[#fda4af] text-[#9f1239]' 
-                      : 'bg-amber-50 border-amber-200 text-amber-600 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400')
+                      : 'bg-amber-500/15 border-amber-500/30 text-amber-500 shadow-xs')
                   : isPink 
-                    ? 'bg-white border-[#fda4af] text-[#881337] hover:bg-[#fff0f3]' 
+                    ? 'bg-white/80 border-[#fda4af] text-[#881337] hover:bg-[#fff0f3]' 
                     : darkMode 
-                    ? 'bg-[#262626] border-[#333] text-[#888] hover:text-white' 
-                    : 'bg-white border-[#e3e2e0] text-[#787774] hover:text-[#37352f]'
+                    ? 'bg-white/[0.04] border-white/[0.08] text-[#a1a1aa] hover:text-white hover:bg-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]' 
+                    : 'bg-white/90 border-[#e3e2e0] text-[#787774] hover:text-[#37352f] shadow-xs'
               }`}
               title={project.isFavorite ? 'Đã yêu thích' : 'Thêm vào mục yêu thích'}
             >
@@ -83,10 +83,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
             <button
               onClick={onAddNewTask}
-              className={`px-3.5 py-1.5 text-white text-xs font-semibold rounded-lg shadow-xs flex items-center gap-1.5 transition-all ${
+              className={`px-3.5 py-1.5 text-white text-xs font-semibold rounded-lg shadow-md flex items-center gap-1.5 transition-all hover:scale-[1.02] active:scale-[0.98] ${
                 isPink
-                  ? 'bg-[#e11d48] hover:bg-[#be123c] active:bg-[#9f1239]'
-                  : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
+                  ? 'bg-[#e11d48] hover:bg-[#be123c] active:bg-[#9f1239] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)]'
+                  : 'bg-[#2383e2] hover:bg-[#1d6ec0] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25)]'
               }`}
             >
               <Plus size={14} strokeWidth={2.5} />
@@ -99,12 +99,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         <div className="flex items-start gap-4 mb-2">
           <button
             onClick={onOpenEmojiPicker}
-            className={`w-14 h-14 sm:w-16 sm:h-16 text-3xl sm:text-4xl rounded-2xl flex items-center justify-center shrink-0 shadow-xs transition-transform hover:scale-105 select-none ${
+            className={`w-14 h-14 sm:w-16 sm:h-16 text-3xl sm:text-4xl rounded-2xl flex items-center justify-center shrink-0 transition-transform hover:scale-105 select-none ${
               isPink
-                ? 'bg-white border-2 border-[#fda4af]'
+                ? 'bg-white/90 backdrop-blur-md border-2 border-[#fda4af] shadow-xs'
                 : darkMode 
-                ? 'bg-[#262626] border border-[#383838]' 
-                : 'bg-white border border-[#e3e2e0]'
+                ? 'bg-white/[0.05] backdrop-blur-md border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)] shadow-black/40' 
+                : 'bg-white/90 backdrop-blur-md border border-[#e3e2e0] shadow-xs'
             }`}
             title="Đổi biểu tượng"
           >

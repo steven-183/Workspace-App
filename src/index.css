@@ -18,3 +18,63 @@
   color: #4c0519;
 }
 
+/* OLED / Deep Charcoal Dark Theme Optimization */
+html.dark {
+  color-scheme: dark;
+  background-color: #0b0c0e;
+}
+
+html.dark ::selection {
+  background-color: #2563eb40;
+  color: #60a5fa;
+}
+
+/* Custom sleek scrollbar in dark mode */
+html.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+html.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Linear-style Inset Highlights & Ambient Depth */
+.linear-card-dark {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.09), 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+}
+
+.linear-card-light {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.9), 0 2px 8px -2px rgba(0, 0, 0, 0.06);
+}
+
+.linear-modal-dark {
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 24px 48px -12px rgba(0, 0, 0, 0.85);
+}
+
+/* Priority Ambient Glow Effects */
+.priority-glow-urgent {
+  box-shadow: inset 2px 0 0 0 #f43f5e, -2px 0 16px -2px rgba(244, 63, 94, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.priority-glow-high {
+  box-shadow: inset 2px 0 0 0 #f59e0b, -2px 0 14px -2px rgba(245, 158, 11, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.priority-glow-urgent-light {
+  box-shadow: inset 2px 0 0 0 #f43f5e, -1px 0 10px 0 rgba(244, 63, 94, 0.18), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+.priority-glow-high-light {
+  box-shadow: inset 2px 0 0 0 #f59e0b, -1px 0 10px 0 rgba(245, 158, 11, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+

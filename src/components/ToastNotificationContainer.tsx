@@ -2,11 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { TaskNotification } from '../types';
 import { formatNotificationTime } from '../utils/notificationService';
 import { 
-  Bell, 
-  MessageSquare, 
-  UserPlus, 
-  Clock, 
-  Tag, 
   X, 
   ExternalLink,
   CheckCircle2,
@@ -61,18 +56,13 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const getEventIcon = (type: TaskNotification['type']) => {
-    switch (type) {
-      case 'assigned':
-        return <UserPlus size={13} className="text-blue-500" />;
-      case 'comment':
-        return <MessageSquare size={13} className="text-emerald-500" />;
-      case 'status_change':
-        return <Clock size={13} className="text-purple-500" />;
-      case 'property_change':
-      default:
-        return <Tag size={13} className="text-amber-500" />;
-    }
+  const isAlertToast = (toast: ToastItem) => {
+    return (
+      toast.title?.toLowerCase().includes('lỗi') ||
+      toast.title?.toLowerCase().includes('cảnh báo') ||
+      toast.message?.toLowerCase().includes('lỗi') ||
+      toast.message?.toLowerCase().includes('thất bại')
+    );
   };
 
   if (toasts.length === 0) return null;
@@ -83,6 +73,8 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
       className="fixed top-4 right-4 z-[9999] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-2 sm:px-0"
     >
       {toasts.map((toast) => {
+        const isAlert = isAlertToast(toast);
+
         return (
           <div
             key={toast.id}
@@ -93,31 +85,23 @@ export const ToastNotificationContainer: React.FC<ToastNotificationContainerProp
                 handleDismiss(toast.id);
               }
             }}
-            className={`pointer-events-auto w-full p-3.5 rounded-2xl border shadow-2xl backdrop-blur-md cursor-pointer transition-all duration-200 transform translate-y-0 hover:scale-[1.02] animate-in slide-in-from-top-4 fade-in ${
+            className={`pointer-events-auto w-full p-3.5 rounded-2xl border shadow-2xl backdrop-blur-xl cursor-pointer transition-all duration-200 transform translate-y-0 hover:scale-[1.02] animate-in slide-in-from-top-4 fade-in ${
               darkMode
-                ? 'bg-[#202020]/95 border-[#383838] text-[#e0e0e0] hover:border-[#555]'
+                ? 'bg-[#121316]/95 border-white/10 text-[#f4f4f5] shadow-black/90 hover:border-white/20'
                 : 'bg-white/95 border-[#e2e1de] text-[#37352f] hover:border-[#bbb]'
             }`}
           >
             <div className="flex items-start gap-3">
-              {/* Avatar or Event Icon */}
-              <div className="relative shrink-0 mt-0.5">
-                {toast.actor?.avatar ? (
-                  <img
-                    src={toast.actor.avatar}
-                    alt={toast.actor.name}
-                    referrerPolicy="no-referrer"
-                    className="w-9 h-9 rounded-xl object-cover border border-black/10 dark:border-white/10"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs">
-                    <Bell size={16} />
-                  </div>
-                )}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white dark:bg-[#1a1a1a] shadow-xs flex items-center justify-center border border-black/5 dark:border-white/10">
-                  {getEventIcon(toast.type)}
+              {/* System Green Check Icon or Alert Icon */}
+              {isAlert ? (
+                <div className="w-9 h-9 rounded-xl bg-rose-500/15 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                  <AlertCircle size={20} className="stroke-[2.2]" />
                 </div>
-              </div>
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                  <CheckCircle2 size={20} className="stroke-[2.2]" />
+                </div>
+              )}
 
               {/* Toast Content */}
               <div className="flex-1 min-w-0 space-y-1">

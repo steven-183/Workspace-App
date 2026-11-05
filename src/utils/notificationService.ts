@@ -44,22 +44,25 @@ export const dispatchTaskEvent = ({
   title: string;
   message: string;
 }): TaskNotification[] => {
-  // Collect all stakeholders: followers + assignees + creator/reviewer
+  // Collect all stakeholders: reviewer/creator + assignees + followers
   const stakeholders = new Map<string, User>();
 
   if (task.creator && (task.creator.id || task.creator.email)) {
-    stakeholders.set(task.creator.id || task.creator.email || '', task.creator);
+    const key = task.creator.id || task.creator.email || '';
+    stakeholders.set(key, task.creator);
   }
-
-  (task.followers || []).forEach((u) => {
-    if (u && (u.id || u.email)) {
-      stakeholders.set(u.id || u.email || '', u);
-    }
-  });
 
   (task.assignees || []).forEach((u) => {
     if (u && (u.id || u.email)) {
-      stakeholders.set(u.id || u.email || '', u);
+      const key = u.id || u.email || '';
+      stakeholders.set(key, u);
+    }
+  });
+
+  (task.followers || []).forEach((u) => {
+    if (u && (u.id || u.email)) {
+      const key = u.id || u.email || '';
+      stakeholders.set(key, u);
     }
   });
 
@@ -67,13 +70,12 @@ export const dispatchTaskEvent = ({
   const now = new Date().toISOString();
 
   stakeholders.forEach((user, key) => {
-    // Don't send notification to the actor themselves
-    if (
+    // Deliver notification to every stakeholder (creator, assignees, followers)
+    // If user is the actor themselves in local turn, we still generate notification so it shows in their inbox history, or delivers across all stakeholder devices
+    const isActorThemselves = Boolean(
       (actor.id && user.id === actor.id) ||
       (actor.email && user.email?.toLowerCase() === actor.email?.toLowerCase())
-    ) {
-      return;
-    }
+    );
 
     newNotifications.push({
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -144,6 +146,14 @@ export const dispatchTaskEvent = ({
     
     if (newNotifications.length > 0) {
       window.dispatchEvent(new CustomEvent('app_show_toast', { detail: newNotifications[0] }));
+      
+      const first = newNotifications[0];
+      sendBrowserNotification(first.title || 'Thông báo công việc mới', {
+        body: `${first.actor?.name ? first.actor.name + ': ' : ''}${first.message}`,
+        tag: first.id,
+        taskId: first.taskId,
+        projectId: first.projectId,
+      });
     }
   }
 
@@ -183,7 +193,6 @@ export const triggerToast = (toastData: {
       } : {
         id: 'system',
         name: 'Hệ thống',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       },
       type: toastData.type || 'property_change',
       title: toastData.title,
@@ -192,6 +201,16 @@ export const triggerToast = (toastData: {
       isRead: false,
     };
     window.dispatchEvent(new CustomEvent('app_show_toast', { detail: notif }));
+    
+    // Also trigger browser notification if document is hidden (user in other tab)
+    if (typeof document !== 'undefined' && document.hidden) {
+      sendBrowserNotification(toastData.title, {
+        body: toastData.message,
+        tag: notif.id,
+        taskId: toastData.taskId,
+        projectId: toastData.projectId,
+      });
+    }
   }
 };
 
@@ -217,5 +236,67 @@ export const formatNotificationTime = (isoString: string): string => {
     return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
   } catch {
     return 'Vừa xong';
+  }
+};
+
+/**
+ * Browser / Desktop Push Notifications (Web Notification API)
+ */
+export const isBrowserNotificationSupported = (): boolean => {
+  return typeof window !== 'undefined' && 'Notification' in window;
+};
+
+export const getBrowserNotificationPermission = (): NotificationPermission => {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    return Notification.permission;
+  }
+  return 'denied';
+};
+
+export const requestBrowserNotificationPermission = async (): Promise<NotificationPermission> => {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    try {
+      const perm = await Notification.requestPermission();
+      return perm;
+    } catch {
+      return 'denied';
+    }
+  }
+  return 'denied';
+};
+
+export const sendBrowserNotification = (
+  title: string,
+  options?: {
+    body?: string;
+    tag?: string;
+    taskId?: string;
+    projectId?: string;
+    icon?: string;
+  }
+) => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+
+  try {
+    const notif = new Notification(title, {
+      body: options?.body || '',
+      icon: options?.icon || 'https://api.dicebear.com/7.x/identicon/svg?seed=qanda_noti',
+      tag: options?.tag,
+    });
+
+    notif.onclick = () => {
+      window.focus();
+      if (options?.projectId && options?.taskId) {
+        window.dispatchEvent(
+          new CustomEvent('app_navigate_to_task', {
+            detail: { projectId: options.projectId, taskId: options.taskId },
+          })
+        );
+      }
+      notif.close();
+    };
+  } catch (err) {
+    console.warn('Failed to send browser notification:', err);
   }
 };

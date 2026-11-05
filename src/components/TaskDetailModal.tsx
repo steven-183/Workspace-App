@@ -10,6 +10,7 @@ import {
   TaskComment, 
   TaskAttachment,
   TaskActivityLog,
+  TaskNotification,
   User,
   AppTheme 
 } from '../types';
@@ -173,7 +174,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     id: 'current-user-default',
     name: 'Bạn',
     email: 'user@company.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    avatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Ban&backgroundColor=2383e2',
     color: '#2383e2',
   };
 
@@ -213,6 +214,35 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     onUpdateTask(task.id, payload, isNewTask);
     setIsDirty(false);
     setIsSavedRecently(true);
+
+    // Dispatch event to all stakeholders (Creator/Reviewer, Assignees, Followers)
+    const isCompleted = payload.status === 'done';
+    const notifType: TaskNotification['type'] = isNewTask 
+      ? 'assigned' 
+      : isCompleted 
+      ? 'status_change' 
+      : 'property_change';
+
+    const notifTitle = isNewTask 
+      ? 'Đã tạo công việc mới' 
+      : isCompleted 
+      ? 'Đã hoàn thành công việc' 
+      : 'Cập nhật công việc';
+
+    const notifMsg = isNewTask 
+      ? `${actorUser.name} đã tạo công việc "${finalTitle}" trong dự án ${project.title}`
+      : isCompleted
+      ? `${actorUser.name} đã hoàn thành công việc "${finalTitle}"`
+      : `${actorUser.name} đã cập nhật thông tin công việc "${finalTitle}"`;
+
+    dispatchTaskEvent({
+      project,
+      task: payload,
+      actor: actorUser,
+      type: notifType,
+      title: notifTitle,
+      message: notifMsg,
+    });
 
     // Trigger toast notification "Đã lưu"
     triggerToast({
@@ -369,8 +399,22 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     };
 
     const updatedComments = [...(draftTask.comments || []), newComment];
+    const updatedDraft = {
+      ...draftTask,
+      comments: updatedComments,
+    };
     logActivityInDraft('general', `Đã thêm bình luận: "${text.substring(0, 40)}${text.length > 40 ? '...' : ''}"`, {
       comments: updatedComments,
+    });
+
+    // Notify all stakeholders about the new comment
+    dispatchTaskEvent({
+      project,
+      task: updatedDraft,
+      actor: actorUser,
+      type: 'comment',
+      title: 'Bình luận mới',
+      message: `${actorUser.name} đã bình luận vào "${draftTask.title}": "${text.substring(0, 60)}${text.length > 60 ? '...' : ''}"`,
     });
 
     setCommentInput('');
@@ -506,29 +550,31 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   return (
     <>
       <div 
-        className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200" 
+        className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200" 
         onClick={handleClose}
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`h-full flex flex-col overflow-hidden shadow-2xl border-l transition-all duration-300 ${
+          className={`h-full flex flex-col overflow-hidden border-l transition-all duration-300 ${
             isFullWidth ? 'w-full max-w-5xl mx-auto rounded-none' : 'w-full max-w-2xl'
           } ${
             isPink
-              ? 'bg-[#fff8f9] border-[#fecdd3] text-[#4c0519]'
-              : darkMode ? 'bg-[#1e1e1e] border-[#313131] text-[#dedede]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+              ? 'bg-[#fff8f9] border-[#fecdd3] text-[#4c0519] shadow-2xl'
+              : darkMode 
+              ? 'bg-[#111215] border-white/10 text-[#f4f4f5] linear-modal-dark shadow-[-12px_0_48px_rgba(0,0,0,0.8)]' 
+              : 'bg-white border-[#e3e2e0] text-[#37352f] shadow-[-12px_0_36px_rgba(0,0,0,0.12)]'
           }`}
         >
-          {/* Top Action Bar */}
-          <div className={`p-3 border-b flex items-center justify-between shrink-0 ${
+          {/* Top Action Bar (Frosted Glass) */}
+          <div className={`p-3 border-b flex items-center justify-between shrink-0 backdrop-blur-xl ${
             isPink
-              ? 'border-[#fecdd3] bg-[#fff0f3]'
-              : darkMode ? 'border-[#2f2f2f] bg-[#1a1a1a]' : 'border-[#ededeb] bg-[#fbfbfa]'
+              ? 'border-[#fecdd3] bg-[#fff0f3]/95'
+              : darkMode ? 'border-white/[0.07] bg-[#0d0e11]/85 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]' : 'border-[#ededeb] bg-[#fbfbfa]/95'
           }`}>
-            <div className={`flex items-center gap-1.5 text-xs truncate max-w-[40%] ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
+            <div className={`flex items-center gap-1.5 text-xs truncate max-w-[40%] ${isPink ? 'text-[#881337]' : darkMode ? 'text-[#a1a1aa]' : 'text-[#9b9a97]'}`}>
               <span className="truncate">{project.title}</span>
               <span>/</span>
-              <span className={`font-semibold ${isPink ? 'text-[#4c0519]' : 'text-[#5a5a58] dark:text-[#ccc]'}`}>Chi tiết công việc</span>
+              <span className={`font-semibold ${isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#f4f4f5]' : 'text-[#5a5a58]'}`}>Chi tiết công việc</span>
               {draftTask.isArchived && (
                 <span className="ml-1.5 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center gap-1">
                   <Archive size={10} /> Đã lưu trữ
@@ -996,63 +1042,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Tags Property */}
-              <div className="grid grid-cols-3 items-center gap-2">
-                <div className="flex items-center gap-2 text-[#9b9a97]">
-                  <TagIcon size={14} />
-                  <span>Thẻ nhãn (Tags)</span>
-                </div>
-                <div className="col-span-2 relative">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {(draftTask.tags || []).map((t) => (
-                      <span
-                        key={t.id}
-                        onClick={() => handleToggleTag(t)}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium cursor-pointer hover:opacity-80 ${
-                          NOTION_COLORS[t.color].badgeBg
-                        }`}
-                      >
-                        <span>{t.label}</span>
-                        <X size={10} />
-                      </span>
-                    ))}
-
-                    <button
-                      onClick={() => setShowTagMenu(!showTagMenu)}
-                      className={`p-1 rounded-md border text-[11px] flex items-center gap-1 ${
-                        darkMode ? 'border-[#3a3a3a] text-[#888]' : 'border-[#e3e2e0] text-[#787774]'
-                      }`}
-                    >
-                      <Plus size={12} />
-                      <span>Thêm thẻ</span>
-                    </button>
-                  </div>
-
-                  {showTagMenu && (
-                    <div className={`absolute top-full left-0 mt-1 w-52 rounded-xl shadow-xl border p-1 z-30 max-h-48 overflow-y-auto ${
-                      darkMode ? 'bg-[#262626] border-[#383838]' : 'bg-white border-[#e3e2e0]'
-                    }`}>
-                      {SAMPLE_TAGS.map((tag) => {
-                        const isSelected = (draftTask.tags || []).some((t) => t.id === tag.id);
-                        return (
-                          <button
-                            key={tag.id}
-                            onClick={() => handleToggleTag(tag)}
-                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
-                              darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]'
-                            }`}
-                          >
-                            <span className={`text-[11px] px-2 py-0.5 rounded ${NOTION_COLORS[tag.color].badgeBg}`}>
-                              {tag.label}
-                            </span>
-                            {isSelected && <Check size={13} className="text-blue-500" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
 
             {/* Subtasks Section */}

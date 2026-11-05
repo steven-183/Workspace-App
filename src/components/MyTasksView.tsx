@@ -141,7 +141,6 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       result = result.filter(
         ({ task: t }) =>
           t.title.toLowerCase().includes(q) ||
-          t.tags?.some((tag) => tag.label.toLowerCase().includes(q)) ||
           t.subtasks?.some((st) => st.text.toLowerCase().includes(q)) ||
           (t.creator?.name && t.creator.name.toLowerCase().includes(q))
       );
@@ -508,18 +507,26 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 const colStyle = col ? NOTION_COLORS[col.color] : (isInReview ? NOTION_COLORS.purple : NOTION_COLORS.gray);
                 const priority = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.none;
 
+                const isUrgent = t.priority === 'urgent';
+                const isHigh = t.priority === 'high';
+                const priorityGlowClass = isUrgent
+                  ? (darkMode ? 'priority-glow-urgent border-l-rose-500' : 'priority-glow-urgent-light border-l-rose-500')
+                  : isHigh
+                  ? (darkMode ? 'priority-glow-high border-l-amber-500' : 'priority-glow-high-light border-l-amber-500')
+                  : (darkMode ? 'linear-card-dark' : 'linear-card-light');
+
                 return (
                   <div
                     key={t.id}
                     onClick={() => onTaskClick(p.id, t)}
-                    className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-2xs ${
+                    className={`group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
                       isInReview && isReviewer
-                        ? (darkMode ? 'bg-purple-950/20 border-purple-800/50 hover:bg-purple-950/30' : 'bg-purple-50/30 border-purple-200 hover:border-purple-300')
+                        ? (darkMode ? 'bg-purple-950/20 border-purple-800/50 hover:bg-purple-950/30 linear-card-dark' : 'bg-purple-50/30 border-purple-200 hover:border-purple-300 linear-card-light')
                         : (isPink 
-                            ? 'bg-white border-[#fecdd3] hover:border-[#fda4af]' 
+                            ? `bg-white border-[#fecdd3] hover:border-[#fda4af] hover:shadow-md ${priorityGlowClass}` 
                             : darkMode
-                            ? 'bg-[#222] border-[#313131] hover:bg-[#282828]'
-                            : 'bg-white border-[#e3e2e0] hover:border-[#c5c4c1]')
+                            ? `bg-[#14151a] border-white/[0.08] hover:border-white/20 hover:bg-[#181a20] hover:-translate-y-0.5 ${priorityGlowClass}`
+                            : `bg-white border-[#e3e2e0] hover:border-[#c5c4c1] hover:shadow-md hover:-translate-y-0.5 ${priorityGlowClass}`)
                     }`}
                   >
                     {/* Left: Checkbox + Title + Project Badge + Role Badge */}

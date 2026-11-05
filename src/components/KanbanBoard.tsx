@@ -133,11 +133,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               onDrop={(e) => handleDropOnColumn(e, col.id)}
               className={`w-72 sm:w-80 shrink-0 flex flex-col transition-all ${
                 !isLastColumn 
-                  ? (isPink ? 'pr-6 border-r border-[#fecdd3]' : darkMode ? 'pr-6 border-r border-[#2d2d2d]' : 'pr-6 border-r border-[#e5e4e0]') 
+                  ? (isPink ? 'pr-6 border-r border-[#fecdd3]' : darkMode ? 'pr-6 border-r border-white/[0.06]' : 'pr-6 border-r border-[#e5e4e0]') 
                   : ''
               } ${
                 isDragOver 
-                  ? (isPink ? 'bg-[#ffe4e6]/50 ring-2 ring-[#e11d48] rounded-xl p-2' : darkMode ? 'bg-[#222]/50 ring-2 ring-[#0284c7] rounded-xl p-2' : 'bg-[#eef6fc]/50 ring-2 ring-[#2383e2] rounded-xl p-2')
+                  ? (isPink ? 'bg-[#ffe4e6]/50 ring-2 ring-[#e11d48] rounded-xl p-2' : darkMode ? 'bg-white/[0.04] ring-2 ring-[#0284c7] rounded-xl p-2' : 'bg-[#eef6fc]/50 ring-2 ring-[#2383e2] rounded-xl p-2')
                   : ''
               }`}
             >
@@ -151,7 +151,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   <span className={`text-xs font-mono font-medium ${
                     isPink 
                       ? 'text-[#9f1239] bg-[#ffe4e6] px-2 py-0.5 rounded-full border border-[#fecdd3]' 
-                      : darkMode ? 'text-[#777]' : 'text-[#9b9a97]'
+                      : darkMode ? 'text-[#a1a1aa] bg-white/[0.06] px-2 py-0.5 rounded-full border border-white/[0.05]' : 'text-[#9b9a97]'
                   }`}>
                     {colTasks.length}
                   </span>
@@ -168,6 +168,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   const completedSubtasks = (task.subtasks || []).filter((s) => s.completed).length;
                   const totalSubtasks = (task.subtasks || []).length;
 
+                  const isUrgent = task.priority === 'urgent';
+                  const isHigh = task.priority === 'high';
+
+                  // Priority ambient glow class for subtle left edge radiance
+                  const priorityGlowClass = isUrgent
+                    ? (darkMode ? 'priority-glow-urgent border-l-rose-500' : 'priority-glow-urgent-light border-l-rose-500')
+                    : isHigh
+                    ? (darkMode ? 'priority-glow-high border-l-amber-500' : 'priority-glow-high-light border-l-amber-500')
+                    : (darkMode ? 'linear-card-dark' : 'linear-card-light');
+
                   return (
                     <div
                       key={task.id}
@@ -179,14 +189,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         setDragOverIndex(index);
                       }}
                       onClick={() => onTaskClick(task)}
-                      className={`group relative rounded-xl border p-3.5 transition-all cursor-pointer shadow-xs ${
+                      className={`group relative rounded-xl border p-3.5 transition-all duration-200 cursor-pointer ${
                         isBeingDragged 
                           ? 'opacity-40 scale-95 border-dashed border-rose-400' 
                           : isPink
-                            ? 'bg-white border-[#fecdd3] hover:border-[#fda4af] hover:shadow-md'
+                            ? `bg-white border-[#fecdd3] hover:border-[#fda4af] hover:shadow-md ${priorityGlowClass}`
                             : darkMode 
-                            ? 'bg-[#232323] border-[#313131] hover:border-[#444] hover:bg-[#282828]' 
-                            : 'bg-white border-[#e3e2e0] hover:border-[#c5c4c1] hover:shadow-md'
+                            ? `bg-[#14151a] border-white/[0.08] hover:border-white/20 hover:bg-[#181a20] hover:-translate-y-0.5 ${priorityGlowClass}` 
+                            : `bg-white border-[#e3e2e0] hover:border-[#c5c4c1] hover:shadow-md hover:-translate-y-0.5 ${priorityGlowClass}`
                       }`}
                     >
                       {/* Optional cover preview inside card */}
@@ -206,8 +216,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h4 className={`text-sm font-semibold leading-snug line-clamp-2 ${
                           task.status === 'done' 
-                            ? (isPink ? 'line-through text-[#881337]/50' : darkMode ? 'line-through text-[#666]' : 'line-through text-[#9b9a97]') 
-                            : (isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#f0f0f0]' : 'text-[#37352f]')
+                            ? (isPink ? 'line-through text-[#881337]/50' : darkMode ? 'line-through text-[#71717a]' : 'line-through text-[#9b9a97]') 
+                            : (isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#f4f4f5]' : 'text-[#37352f]')
                         }`}>
                           {task.title}
                         </h4>
@@ -218,26 +228,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         </div>
                       </div>
 
-                      {/* Tags */}
-                      {task.tags && task.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-2.5">
-                          {task.tags.map((tag) => {
-                            const tagStyle = NOTION_COLORS[tag.color] || NOTION_COLORS.gray;
-                            return (
-                              <span
-                                key={tag.id}
-                                className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${tagStyle.badgeBg}`}
-                              >
-                                {tag.label}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      )}
+
 
                       {/* Card Footer: Dates, Subtasks, Priority, Assignees, Attachments */}
                       <div className={`flex items-center justify-between gap-1 pt-1 text-xs border-t ${
-                        isPink ? 'border-[#fff0f3]' : darkMode ? 'border-[#2d2d2d]' : 'border-[#f1f1ef]'
+                        isPink ? 'border-[#fff0f3]' : darkMode ? 'border-white/[0.06]' : 'border-[#f1f1ef]'
                       }`}>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {/* Due Date & Time badge */}
@@ -248,7 +243,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                                   ? 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400'
                                   : dueToday
                                   ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
-                                  : isPink ? 'text-[#881337]' : darkMode ? 'text-[#888]' : 'text-[#787774]'
+                                  : isPink ? 'text-[#881337]' : darkMode ? 'text-[#a1a1aa]' : 'text-[#787774]'
                               }`}
                             >
                               <Calendar size={11} className={overdue ? 'text-red-500' : ''} />
@@ -325,7 +320,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                             {task.assignees.slice(0, 3).map((user) => (
                               <img
                                 key={user.id}
-                                src={user.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                                src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}&backgroundColor=2383e2`}
                                 alt={user.name}
                                 title={`Người làm: ${user.name}`}
                                 referrerPolicy="no-referrer"
