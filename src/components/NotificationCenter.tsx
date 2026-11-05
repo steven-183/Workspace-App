@@ -8,6 +8,7 @@ import {
   requestBrowserNotificationPermission,
   sendBrowserNotification
 } from '../utils/notificationService';
+import { getSupabaseConfig } from '../lib/supabase';
 import { 
   Bell, 
   Check, 
@@ -83,11 +84,21 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   // Filter notifications relevant to the current user (if logged in), or all notifications
   const userNotifications = notifications.filter((n) => {
     if (!currentUser) return true;
+    const myId = currentUser.id?.toLowerCase();
+    const myEmail = currentUser.email?.toLowerCase();
+    const myName = currentUser.name?.toLowerCase().trim();
+
     return (
       n.recipientId === 'all' ||
-      n.recipientId === currentUser.id ||
-      n.recipientId === currentUser.email ||
-      (currentUser.email && n.recipientId?.toLowerCase() === currentUser.email.toLowerCase())
+      (myId && n.recipientId?.toLowerCase() === myId) ||
+      (myEmail && (
+        n.recipientEmail?.toLowerCase() === myEmail ||
+        n.recipientId?.toLowerCase() === myEmail
+      )) ||
+      (myName && (
+        n.recipientName?.toLowerCase().trim() === myName ||
+        n.recipientId?.toLowerCase().trim() === myName
+      ))
     );
   });
 
@@ -472,14 +483,36 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             )}
           </div>
 
-          {/* Footer note */}
-          {currentUser && (
-            <div className={`p-3 border-t text-center text-[10px] text-[#71717a] dark:text-[#a1a1aa] shrink-0 ${
-              darkMode ? 'border-white/[0.08] bg-[#141518]' : 'border-[#ebeae7] bg-[#fbfbfa]'
-            }`}>
-              Người nhận: <strong className="font-semibold text-[#18181b] dark:text-[#e4e4e7]">{currentUser.name}</strong> ({currentUser.email})
+          {/* Footer note & Connection Status */}
+          <div className={`p-3 border-t text-[11px] text-[#71717a] dark:text-[#a1a1aa] shrink-0 space-y-1.5 ${
+            darkMode ? 'border-white/[0.08] bg-[#141518]' : 'border-[#ebeae7] bg-[#fbfbfa]'
+          }`}>
+            {currentUser ? (
+              <div className="flex items-center justify-between text-[11px]">
+                <span>Tài khoản hiện tại:</span>
+                <span className="font-semibold text-[#18181b] dark:text-[#e4e4e7] truncate max-w-[220px]">
+                  {currentUser.name} {currentUser.email ? `(${currentUser.email})` : ''}
+                </span>
+              </div>
+            ) : (
+              <div className="text-[11px] text-amber-500">
+                Chưa đăng nhập tài khoản cá nhân.
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 text-[10px] pt-0.5 border-t border-black/[0.04] dark:border-white/[0.04]">
+              {getSupabaseConfig().isConfigured ? (
+                <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  Đang đồng bộ Realtime đa thiết bị qua Supabase Cloud.
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                  Đang lưu cục bộ (Local Storage). Cần kết nối chung database để gửi sang máy đồng nghiệp.
+                </span>
+              )}
             </div>
-          )}
+          </div>
         </div>,
         document.body
       )}

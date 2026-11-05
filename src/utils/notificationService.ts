@@ -1,5 +1,5 @@
 import { ProjectPage, Task, TaskComment, TaskNotification, User } from '../types';
-import { getSupabase } from '../lib/supabase';
+import { getSupabase, broadcastTaskNotifications } from '../lib/supabase';
 
 const NOTIFICATIONS_STORAGE_KEY = 'notion_task_notifications_v1';
 
@@ -80,6 +80,8 @@ export const dispatchTaskEvent = ({
     newNotifications.push({
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       recipientId: user.id || user.email || key,
+      recipientEmail: user.email,
+      recipientName: user.name,
       taskId: task.id,
       taskTitle: task.title,
       projectId: project.id,
@@ -125,35 +127,29 @@ export const dispatchTaskEvent = ({
   const updated = [...newNotifications, ...current].slice(0, 100);
   saveStoredNotifications(updated);
 
-  // Broadcast to Supabase Realtime channel so all other devices/tabs get it
-  const supabase = getSupabase();
-  if (supabase && newNotifications.length > 0) {
-    try {
-      const channel = supabase.channel('workspace_realtime_broadcast');
-      channel.send({
-        type: 'broadcast',
-        event: 'new_task_notification',
-        payload: { notifications: newNotifications },
-      });
-    } catch (e) {
-      // ignore
-    }
-  }
+  // Broadcast to Supabase Realtime channel so all other devices and colleagues receive it!
+  broadcastTaskNotifications(newNotifications).catch(() => {});
 
   // Dispatch custom window event so local components update immediately
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('app_notifications_updated', { detail: updated }));
     
-    if (newNotifications.length > 0) {
-      window.dispatchEvent(new CustomEvent('app_show_toast', { detail: newNotifications[0] }));
-      
-      const first = newNotifications[0];
-      sendBrowserNotification(first.title || 'Thông báo công việc mới', {
-        body: `${first.actor?.name ? first.actor.name + ': ' : ''}${first.message}`,
-        tag: first.id,
-        taskId: first.taskId,
-        projectId: first.projectId,
+    // Only fire browser desktop notification locally if document is hidden or user assigned themselves
+    if (newNotifications.length > 0 && typeof document !== 'undefined' && document.hidden) {
+      const myNotif = newNotifications.find((n) => {
+        return (
+          (actor.id && n.recipientId === actor.id) ||
+          (actor.email && n.recipientEmail?.toLowerCase() === actor.email.toLowerCase())
+        );
       });
+      if (myNotif) {
+        sendBrowserNotification(myNotif.title || 'Thông báo công việc', {
+          body: myNotif.message,
+          tag: myNotif.id,
+          taskId: myNotif.taskId,
+          projectId: myNotif.projectId,
+        });
+      }
     }
   }
 

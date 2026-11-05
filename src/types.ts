@@ -87,6 +87,8 @@ export type NotificationType = 'assigned' | 'property_change' | 'comment' | 'sta
 export interface TaskNotification {
   id: string;
   recipientId: string;
+  recipientEmail?: string;
+  recipientName?: string;
   taskId: string;
   taskTitle: string;
   projectId: string;

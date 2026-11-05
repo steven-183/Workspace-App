@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, User as SupabaseAuthUser } from '@supabase/supabase-js';
-import { ProjectPage, Task, User, TeamId } from '../types';
+import { ProjectPage, Task, User, TeamId, TaskNotification } from '../types';
 
 const ENV_URL = ((import.meta as any).env?.VITE_SUPABASE_URL as string) || '';
 const ENV_KEY = ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY as string) || '';
@@ -671,3 +671,39 @@ export async function deleteTaskFromSupabase(taskId: string): Promise<void> {
     console.error('Error deleting task from Supabase:', err);
   }
 }
+
+// Global shared Realtime Channel reference for cross-tab and cross-device broadcast
+let activeSharedRealtimeChannel: any = null;
+
+export function setSharedRealtimeChannel(channel: any) {
+  activeSharedRealtimeChannel = channel;
+}
+
+export function getSharedRealtimeChannel(): any {
+  return activeSharedRealtimeChannel;
+}
+
+export async function broadcastTaskNotifications(notifications: TaskNotification[]): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase || !notifications || notifications.length === 0) return;
+
+  try {
+    let ch = getSharedRealtimeChannel();
+    if (!ch) {
+      ch = supabase.channel('workspace_realtime_events', {
+        config: { broadcast: { ack: true } },
+      });
+      await ch.subscribe();
+      setSharedRealtimeChannel(ch);
+    }
+
+    await ch.send({
+      type: 'broadcast',
+      event: 'new_task_notification',
+      payload: { notifications },
+    });
+  } catch (err) {
+    console.warn('[Supabase Realtime] Failed to broadcast notifications:', err);
+  }
+}
+

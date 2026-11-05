@@ -29,7 +29,8 @@ import {
   fetchProfilesFromSupabase,
   signOutSupabase, 
   mapSupabaseUser,
-  mergeProjectsWithRemote
+  mergeProjectsWithRemote,
+  setSharedRealtimeChannel
 } from './lib/supabase';
 
 const STORAGE_KEY = 'notion_tasks_workspace_v1';
@@ -371,7 +372,9 @@ export default function App() {
     };
 
     const realtimeChannel = supabase
-      .channel('workspace_realtime_events')
+      .channel('workspace_realtime_events', {
+        config: { broadcast: { ack: true } },
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
@@ -399,16 +402,29 @@ export default function App() {
               setNotifications(merged);
               saveStoredNotifications(merged);
 
-              // Check if notification is for current user
+              // Check if notification is for current user (matching by id, email, or name)
               const savedUserStr = localStorage.getItem(USER_KEY);
               const activeUser = savedUserStr ? JSON.parse(savedUserStr) : null;
               if (activeUser) {
-                const myNotifs = fresh.filter((n: TaskNotification) =>
-                  n.recipientId === 'all' ||
-                  n.recipientId === activeUser.id ||
-                  n.recipientId === activeUser.email ||
-                  (activeUser.email && n.recipientId?.toLowerCase() === activeUser.email.toLowerCase())
-                );
+                const myId = activeUser.id?.toLowerCase();
+                const myEmail = activeUser.email?.toLowerCase();
+                const myName = activeUser.name?.toLowerCase().trim();
+
+                const myNotifs = fresh.filter((n: TaskNotification) => {
+                  return (
+                    n.recipientId === 'all' ||
+                    (myId && n.recipientId?.toLowerCase() === myId) ||
+                    (myEmail && (
+                      n.recipientEmail?.toLowerCase() === myEmail ||
+                      n.recipientId?.toLowerCase() === myEmail
+                    )) ||
+                    (myName && (
+                      n.recipientName?.toLowerCase().trim() === myName ||
+                      n.recipientId?.toLowerCase().trim() === myName
+                    ))
+                  );
+                });
+
                 if (myNotifs.length > 0) {
                   window.dispatchEvent(new CustomEvent('app_show_toast', { detail: myNotifs[0] }));
                   sendBrowserNotification(myNotifs[0].title || 'Thông báo công việc mới', {
@@ -423,7 +439,11 @@ export default function App() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setSharedRealtimeChannel(realtimeChannel);
+        }
+      });
 
     return () => {
       authListener?.subscription.unsubscribe();
