@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FilterOptions, MainSectionType, NotionColor, PriorityLevel, ProjectPage, StatusId, Task, TaskNotification, TimelineZoom, User, ViewType, TeamId, FIXED_TEAMS, AppTheme } from './types';
+import { FilterOptions, MainSectionType, NotionColor, PriorityLevel, ProjectPage, StatusId, Task, TaskNotification, TimelineZoom, User, UserRole, ViewType, TeamId, FIXED_TEAMS, AppTheme } from './types';
 import { DEFAULT_COLUMNS, INITIAL_PROJECTS, SAMPLE_TAGS, SAMPLE_USERS } from './data/initialData';
 import { Sidebar } from './components/Sidebar';
 import { PageHeader } from './components/PageHeader';
@@ -9,6 +9,7 @@ import { TimelineView } from './components/TimelineView';
 import { TableView } from './components/TableView';
 import { CalendarView } from './components/CalendarView';
 import { MyTasksView } from './components/MyTasksView';
+import { AdminDashboardView } from './components/AdminDashboardView';
 import { TaskDetailModal } from './components/TaskDetailModal';
 import { EmojiPickerModal } from './components/EmojiPickerModal';
 import { QuickSearchModal } from './components/QuickSearchModal';
@@ -30,7 +31,8 @@ import {
   signOutSupabase, 
   mapSupabaseUser,
   mergeProjectsWithRemote,
-  setSharedRealtimeChannel
+  setSharedRealtimeChannel,
+  broadcastTaskNotifications
 } from './lib/supabase';
 
 const STORAGE_KEY = 'notion_tasks_workspace_v1';
@@ -201,6 +203,129 @@ export default function App() {
   // Dynamic database users from Supabase profiles
   const [dbUsers, setDbUsers] = useState<User[]>([]);
 
+  // User Roles & RBAC Management
+  const USER_ROLES_KEY = 'workspace_user_roles_v1';
+  const [userRoles, setUserRoles] = useState<Record<string, UserRole>>(() => {
+    try {
+      const raw = localStorage.getItem(USER_ROLES_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleUpdateUserRole = (userId: string, newRole: UserRole) => {
+    setUserRoles((prev) => {
+      const updated = { ...prev, [userId]: newRole };
+      try {
+        localStorage.setItem(USER_ROLES_KEY, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Failed to save user roles:', err);
+      }
+      return updated;
+    });
+
+    if (currentUser && (currentUser.id === userId || currentUser.email === userId)) {
+      const updatedUser: User = { ...currentUser, role: newRole };
+      setCurrentUser(updatedUser);
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+      } catch (e) {}
+    }
+
+    triggerToast({
+      title: 'Đã cập nhật phân quyền',
+      message: `Đã cập nhật vai trò người dùng thành ${newRole === 'admin' ? 'Quản trị viên (Admin)' : 'Thành viên (Member)'}.`,
+      type: 'property_change',
+    });
+  };
+
+  const handleSendAdminReminder = (targetUser: User, overdueTasks: Task[], customMessage?: string) => {
+    const taskTitles = overdueTasks.map((t) => `"${t.title}"`).slice(0, 3).join(', ');
+    const moreCount = overdueTasks.length > 3 ? ` và ${overdueTasks.length - 3} việc khác` : '';
+    const message = customMessage || `Admin nhắc nhở bạn có ${overdueTasks.length} công việc quá hạn cần hoàn thành sớm: ${taskTitles}${moreCount}.`;
+
+    const now = new Date().toISOString();
+    const reminderNotif: TaskNotification = {
+      id: `reminder-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      recipientId: targetUser.id || targetUser.email || '',
+      recipientEmail: targetUser.email,
+      recipientName: targetUser.name,
+      taskId: overdueTasks[0]?.id || '',
+      taskTitle: overdueTasks[0]?.title || 'Công việc quá hạn',
+      projectId: activeProjectId,
+      projectTitle: 'Nhắc nhở từ Quản trị viên',
+      actor: {
+        id: currentUser?.id || 'admin',
+        name: currentUser?.name || 'Quản trị viên',
+        avatar: currentUser?.avatar,
+        email: currentUser?.email,
+      },
+      type: 'status_change',
+      title: '⚠️ Nhắc nhở công việc quá hạn từ Admin',
+      message,
+      createdAt: now,
+      isRead: false,
+    };
+
+    const currentNotifs = getStoredNotifications();
+    const updated = [reminderNotif, ...currentNotifs].slice(0, 100);
+    setNotifications(updated);
+    saveStoredNotifications(updated);
+
+    broadcastTaskNotifications([reminderNotif]).catch(() => {});
+
+    triggerToast({
+      title: 'Đã gửi nhắc nhở thành công',
+      message: `Đã gửi thông báo đôn đốc tới ${targetUser.name}.`,
+      type: 'property_change',
+    });
+  };
+
+  const handleBatchSendAdminReminders = (userOverdueMap: { user: User; tasks: Task[] }[]) => {
+    const newNotifs: TaskNotification[] = [];
+    const now = new Date().toISOString();
+
+    userOverdueMap.forEach(({ user, tasks }) => {
+      const taskTitles = tasks.map((t) => `"${t.title}"`).slice(0, 2).join(', ');
+      const moreCount = tasks.length > 2 ? ` và ${tasks.length - 2} việc khác` : '';
+      newNotifs.push({
+        id: `batch-reminder-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        recipientId: user.id || user.email || '',
+        recipientEmail: user.email,
+        recipientName: user.name,
+        taskId: tasks[0]?.id || '',
+        taskTitle: tasks[0]?.title || 'Công việc quá hạn',
+        projectId: activeProjectId,
+        projectTitle: 'Nhắc nhở toàn hệ thống',
+        actor: {
+          id: currentUser?.id || 'admin',
+          name: currentUser?.name || 'Quản trị viên',
+          avatar: currentUser?.avatar,
+          email: currentUser?.email,
+        },
+        type: 'status_change',
+        title: '⚠️ Đôn đốc tiến độ công việc quá hạn',
+        message: `Admin thông báo bạn có ${tasks.length} công việc quá hạn cần ưu tiên xử lý: ${taskTitles}${moreCount}.`,
+        createdAt: now,
+        isRead: false,
+      });
+    });
+
+    const currentNotifs = getStoredNotifications();
+    const updated = [...newNotifs, ...currentNotifs].slice(0, 100);
+    setNotifications(updated);
+    saveStoredNotifications(updated);
+
+    broadcastTaskNotifications(newNotifs).catch(() => {});
+
+    triggerToast({
+      title: 'Đã gửi nhắc nhở đồng loạt',
+      message: `Đã gửi thông báo tới ${userOverdueMap.length} nhân sự có công việc trễ hạn.`,
+      type: 'property_change',
+    });
+  };
+
   // Aggregated list of all available users across system, database, logged in user, and tasks
   const allAvailableUsers = useMemo(() => {
     const map = new Map<string, User>();
@@ -226,8 +351,14 @@ export default function App() {
         });
       });
     });
-    return Array.from(map.values());
-  }, [projects, currentUser, dbUsers]);
+
+    return Array.from(map.values()).map((user) => {
+      const isSteven = Boolean(user.email && user.email.toLowerCase() === 'steven.mai@mathpresso.com');
+      const isSelf = Boolean(currentUser && (currentUser.id === user.id || currentUser.email === user.email));
+      const role = userRoles[user.id] || (user.email ? userRoles[user.email] : undefined) || user.role || (isSteven || isSelf ? 'admin' : 'member');
+      return { ...user, role };
+    });
+  }, [projects, currentUser, dbUsers, userRoles]);
 
   // In-app Notifications State
   const [notifications, setNotifications] = useState<TaskNotification[]>(() => getStoredNotifications());
@@ -1311,6 +1442,9 @@ export default function App() {
         onSelectMyTasks={() => {
           setActiveSection('my_tasks');
         }}
+        onSelectAdminDashboard={() => {
+          setActiveSection('admin_dashboard');
+        }}
         onOpenAuthModal={() => setShowAuthModal(true)}
         onAddProject={handleAddProject}
         onDeleteProject={handleDeleteProject}
@@ -1336,7 +1470,24 @@ export default function App() {
 
       {/* Main Workspace Body */}
       <main className="flex-1 flex flex-col h-full overflow-y-auto overflow-x-hidden no-scrollbar relative">
-        {activeSection === 'my_tasks' ? (
+        {activeSection === 'admin_dashboard' ? (
+          <AdminDashboardView
+            projects={visibleProjects}
+            users={allAvailableUsers}
+            currentUser={currentUser}
+            onOpenTask={handleOpenNotificationTask}
+            onUpdateUserRole={handleUpdateUserRole}
+            onSendReminder={handleSendAdminReminder}
+            onBatchSendReminders={handleBatchSendAdminReminders}
+            onSelectProject={(projId) => {
+              setActiveProjectId(projId);
+              setActiveSection('project');
+            }}
+            onOpenAuthModal={() => setShowAuthModal(true)}
+            darkMode={darkMode}
+            appTheme={appTheme}
+          />
+        ) : activeSection === 'my_tasks' ? (
           <MyTasksView
             projects={visibleProjects}
             currentUser={currentUser}

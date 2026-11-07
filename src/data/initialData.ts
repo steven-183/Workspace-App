@@ -32,7 +32,7 @@ export const INITIAL_PROJECTS: ProjectPage[] = [
     title: 'Bảng công việc QANDA',
     icon: '📋',
     coverImage: 'linear-gradient(135deg, #FFA9B2 0%, #FFD6DC 100%)',
-    description: 'Không gian làm việc và theo dõi nhiệm vụ QANDA Workspace.',
+    description: 'Không gian làm việc và theo dõi nhiệm vụ Growth Department Workspace.',
     columns: DEFAULT_COLUMNS,
     views: ['kanban', 'timeline', 'table', 'calendar'],
     activeView: 'kanban',

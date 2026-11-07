@@ -22,8 +22,14 @@ import {
   LogIn, 
   User as UserIcon,
   Sparkles, 
-  Archive
+  Archive,
+  BarChart3,
+  ShieldCheck,
+  TrendingUp,
+  Globe
 } from 'lucide-react';
+import { isOverdue } from '../utils/dateUtils';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SidebarProps {
   projects: ProjectPage[];
@@ -37,6 +43,7 @@ interface SidebarProps {
   onClearNotification: (notificationId: string) => void;
   onSelectProject: (id: string) => void;
   onSelectMyTasks: () => void;
+  onSelectAdminDashboard?: () => void;
   onOpenAuthModal: () => void;
   onOpenTrashArchive: (tab?: 'archive' | 'trash') => void;
   onAddProject: (teamId?: TeamId) => void;
@@ -66,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClearNotification,
   onSelectProject,
   onSelectMyTasks,
+  onSelectAdminDashboard,
   onOpenAuthModal,
   onOpenTrashArchive,
   onAddProject,
@@ -82,6 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   appTheme = 'light',
   onSetTheme,
 }) => {
+  const { language, setLanguage, t } = useLanguage();
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [hoveredPageId, setHoveredPageId] = useState<string | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<ProjectPage | null>(null);
@@ -162,6 +171,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }, 0)
     : 0;
 
+  // Total overdue tasks across workspace for admin reminder badge
+  const globalOverdueCount = projects.reduce((acc, p) => {
+    if (p.isDeleted) return acc;
+    const count = (p.tasks || []).filter((t) => !t.isDeleted && !t.isArchived && isOverdue(t.dueDate, t.status)).length;
+    return acc + count;
+  }, 0);
+
   // Theme styling helpers (ensuring deeper pink, high contrast text and aesthetic design)
   const isPink = appTheme === 'qanda_pink';
 
@@ -221,15 +237,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             transition={{ duration: 0.16 }}
             className="w-13 h-full flex flex-col items-center py-3 justify-between"
           >
-            <div className="flex flex-col items-center gap-3 w-full">
+            <div className="flex flex-col items-center gap-2.5 w-full">
+              {/* Growth Logo Icon */}
               <button
                 onClick={onToggleCollapse}
-                title="Mở rộng thanh bên"
-                className={`p-2 rounded-lg transition-colors ${
-                  isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#2f2f2f] text-[#a3a3a3]' : 'hover:bg-[#ebeae7] text-[#787774]'
+                title={t('expandSidebar', 'Mở rộng thanh bên')}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs transition-all hover:scale-105 cursor-pointer ${
+                  isPink
+                    ? 'bg-gradient-to-tr from-rose-500 to-pink-600 text-white shadow-rose-500/30'
+                    : darkMode
+                      ? 'bg-gradient-to-tr from-emerald-500 to-teal-500 text-white shadow-emerald-500/25 ring-1 ring-white/10'
+                      : 'bg-gradient-to-tr from-emerald-600 to-teal-600 text-white shadow-teal-600/25 ring-1 ring-emerald-700/15'
                 }`}
               >
-                <PanelLeft size={18} />
+                <TrendingUp size={18} className="stroke-[2.5]" />
               </button>
               
               <button
@@ -270,6 +291,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </span>
                 )}
               </button>
+
+              {/* Admin Dashboard icon */}
+              {onSelectAdminDashboard && (
+                <button
+                  onClick={onSelectAdminDashboard}
+                  title={`Dashboard Quản trị (${globalOverdueCount} việc quá hạn)`}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center relative transition-all ${
+                    activeSection === 'admin_dashboard'
+                      ? (isPink ? 'bg-[#e11d48] text-white shadow-xs' : 'bg-[#2563eb] text-white shadow-xs')
+                      : (isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#2a2a2a] text-[#aaa]' : 'hover:bg-[#ebeae7] text-[#787774]')
+                  }`}
+                >
+                  <BarChart3 size={16} />
+                  {globalOverdueCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {globalOverdueCount > 9 ? '9+' : globalOverdueCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               <div className={`w-6 h-[1px] ${isPink ? 'bg-[#fda4af]' : darkMode ? 'bg-[#2f2f2f]' : 'bg-[#e3e2e0]'}`} />
 
@@ -350,6 +391,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                 )}
               </button>
+
+              {/* Nút mở rộng thanh bên ở góc dưới cùng */}
+              <button
+                onClick={onToggleCollapse}
+                title={t('expandSidebar', 'Mở rộng thanh bên')}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#2f2f2f] text-[#a3a3a3]' : 'hover:bg-[#ebeae7] text-[#787774]'
+                }`}
+              >
+                <PanelLeft size={16} />
+              </button>
             </div>
           </motion.div>
         ) : (
@@ -362,38 +414,87 @@ export const Sidebar: React.FC<SidebarProps> = ({
             transition={{ duration: 0.16 }}
             className="w-64 h-full flex flex-col justify-between"
           >
-            {/* Top Workspace Header & Profile */}
-            <div className="p-3 border-b border-transparent">
-              <div className="flex items-center justify-between p-1.5 rounded-lg">
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  <img
-                    src="/qanda_logo.jpg"
-                    alt="QANDA Logo"
-                    className="w-7 h-7 rounded-lg object-cover shadow-xs border border-orange-200 dark:border-orange-900/50 shrink-0"
-                  />
-                  <div className="text-left truncate">
-                    <div className={`text-sm font-bold truncate leading-tight flex items-center gap-1 ${textPrimary}`}>
-                      <span>QANDA Workspace</span>
-                    </div>
-                    <div className={`text-[11px] truncate font-medium ${textMuted}`}>
-                      {currentUser ? currentUser.name : 'Chưa đăng nhập'}
-                    </div>
+            {/* Top Workspace Header & Branding */}
+            <div className={`p-3 pt-3.5 pb-3 border-b select-none ${dividerClass} ${
+              isPink 
+                ? 'bg-gradient-to-b from-[#fff5f6] to-transparent' 
+                : darkMode 
+                  ? 'bg-gradient-to-b from-white/[0.03] to-transparent' 
+                  : 'bg-gradient-to-b from-white to-transparent'
+            }`}>
+              <div className="flex items-center gap-2.5 w-full">
+                {/* Growth Emblem - Sized to match the entire right-side text height */}
+                <div className="relative group shrink-0">
+                  {/* Subtle ambient glow behind growth icon */}
+                  <div className={`absolute -inset-1 rounded-2xl blur-md opacity-45 group-hover:opacity-85 transition-opacity pointer-events-none ${
+                    isPink 
+                      ? 'bg-rose-500' 
+                      : darkMode ? 'bg-emerald-500' : 'bg-emerald-600'
+                  }`} />
+                  
+                  <div className={`relative w-[70px] h-[70px] rounded-2xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105 ${
+                    isPink
+                      ? 'bg-gradient-to-tr from-rose-500 via-rose-600 to-pink-500 text-white shadow-rose-500/25 ring-1 ring-white/30'
+                      : darkMode
+                        ? 'bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-400 text-white shadow-emerald-500/25 ring-1 ring-white/15'
+                        : 'bg-gradient-to-tr from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-emerald-600/25 ring-1 ring-emerald-700/20'
+                  }`} title="Growth Department Workspace">
+                    <TrendingUp size={35} className="stroke-[2.5]" />
                   </div>
                 </div>
 
-                {/* Collapse button */}
-                <button
-                  onClick={onToggleCollapse}
-                  className={`p-1.5 rounded-lg transition-colors shrink-0 ${
-                    isPink 
-                      ? 'text-[#881337] hover:text-[#4c0519] hover:bg-[#fff0f3]'
-                      : darkMode ? 'text-[#9b9a97] hover:text-white hover:bg-[#2c2c2c]' : 'text-[#9b9a97] hover:text-[#37352f] hover:bg-[#ebeae7]'
-                  }`}
-                  title="Thu gọn thanh bên"
-                >
-                  <PanelLeftClose size={16} />
-                </button>
+                {/* 3-line Text Block - Fills entire width of sidebar next to logo */}
+                <div className="flex-1 min-w-0 flex flex-col justify-between h-[70px] py-0.5">
+                  {/* Line 1: GROWTH - All Caps with Vibrant Gradient, Ambient Glow & Slanted Arrow Alignment */}
+                  <div>
+                    <span className={`inline-block italic -skew-x-6 font-black text-[24.5px] tracking-[0.03em] leading-none uppercase select-none transition-all transform origin-bottom-left ${
+                      isPink
+                        ? 'bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(244,63,94,0.25)]'
+                        : darkMode
+                          ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300 bg-clip-text text-transparent drop-shadow-[0_2px_12px_rgba(52,211,153,0.35)]'
+                          : 'bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-700 bg-clip-text text-transparent drop-shadow-[0_1px_2px_rgba(0,0,0,0.08)]'
+                    }`}>
+                      GROWTH
+                    </span>
+                  </div>
+
+                  {/* Line 2: Department - Scaled to match horizontal length of GROWTH */}
+                  <span className={`text-[19.5px] font-black tracking-[0.08em] leading-none select-none ${
+                    isPink ? 'text-[#881337]' : darkMode ? 'text-zinc-100' : 'text-[#18181b]'
+                  }`}>
+                    Department
+                  </span>
+
+                  {/* Line 3: Workspace & Role Badge */}
+                  <div className="flex items-center gap-2 leading-none mt-0.5">
+                    <span className={`text-[12px] font-bold tracking-tight ${
+                      isPink ? 'text-[#be123c]' : darkMode ? 'text-zinc-400' : 'text-[#5a5855]'
+                    }`}>
+                      Workspace
+                    </span>
+
+                    {currentUser?.role === 'admin' ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 shadow-xs">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span>Admin</span>
+                      </span>
+                    ) : currentUser ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <span>Member</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20">
+                        <span>Khách</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* Quick Actions & Navigation Section */}
+            <div className="p-2.5 pb-1">
 
               {/* SECTION: MY TASKS */}
               <div className="mt-2.5">
@@ -407,7 +508,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <div className="flex items-center gap-2.5">
                     <CheckSquare size={16} className={activeSection === 'my_tasks' ? 'text-white' : (isPink ? 'text-[#e11d48]' : 'text-[#2383e2]')} />
-                    <span>Công việc của tôi</span>
+                    <span>{t('myTasks', 'Công việc của tôi')}</span>
                   </div>
                   {myPendingTasksCount > 0 && (
                     <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
@@ -420,6 +521,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   )}
                 </button>
               </div>
+
+              {/* SECTION: ADMIN DASHBOARD */}
+              {onSelectAdminDashboard && (
+                <div className="mt-1">
+                  <button
+                    onClick={onSelectAdminDashboard}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      activeSection === 'admin_dashboard'
+                        ? (isPink ? 'bg-[#e11d48] text-white shadow-sm' : 'bg-[#2563eb] text-white shadow-xs')
+                        : (isPink ? 'hover:bg-[#fff0f3]/80 text-[#4c0519]' : darkMode ? 'hover:bg-[#2c2c2c] text-[#ddd]' : 'hover:bg-[#ebeae7] text-[#37352f]')
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <BarChart3 size={16} className={activeSection === 'admin_dashboard' ? 'text-white' : (isPink ? 'text-[#e11d48]' : 'text-[#2563eb]')} />
+                      <span>{t('adminDashboard', 'Dashboard Quản trị')}</span>
+                    </div>
+                    {globalOverdueCount > 0 ? (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold font-mono ${
+                        activeSection === 'admin_dashboard'
+                          ? 'bg-white text-rose-700'
+                          : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                      }`}>
+                        {globalOverdueCount} {t('overdueBadge', 'trễ')}
+                      </span>
+                    ) : (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${
+                        activeSection === 'admin_dashboard'
+                          ? 'bg-white/20 text-white'
+                          : (darkMode ? 'bg-white/5 text-[#a1a1aa]' : 'bg-black/5 text-[#71717a]')
+                      }`}>
+                        {t('admin', 'Admin')}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* Quick Utilities */}
               <div className="mt-1 space-y-0.5">
@@ -443,7 +580,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <Search size={14} />
-                    <span>Tìm kiếm nhanh</span>
+                    <span>{t('quickSearch', 'Tìm kiếm nhanh')}</span>
                   </div>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                     isPink 
@@ -816,6 +953,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                       <div className={`my-1 border-t ${isPink ? 'border-[#fda4af]' : darkMode ? 'border-white/[0.06]' : 'border-[#eee]'}`} />
 
+                      {/* Language Selection */}
+                      <div className="pt-1 pb-1">
+                        <div className={`text-[10px] uppercase font-bold px-2 py-1 flex items-center gap-1.5 ${textMuted}`}>
+                          <Globe size={11} className={isPink ? 'text-[#e11d48]' : 'text-blue-500'} />
+                          <span>{t('languageSelection', 'Ngôn ngữ giao diện')}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 px-1 pt-1 pb-1">
+                          <button
+                            type="button"
+                            onClick={() => setLanguage('vi')}
+                            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg border text-[11px] font-semibold transition-all ${
+                              language === 'vi'
+                                ? (isPink ? 'bg-white border-[#e11d48] text-[#9f1239] shadow-xs ring-1 ring-[#e11d48]' : darkMode ? 'bg-white/10 border-white/20 text-white shadow-xs' : 'bg-white border-[#2383e2] text-[#2383e2] shadow-xs')
+                                : (darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#a1a1aa] hover:text-white' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]')
+                            }`}
+                            title="Tiếng Việt"
+                          >
+                            <span>🇻🇳</span>
+                            <span>Tiếng Việt</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLanguage('en')}
+                            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg border text-[11px] font-semibold transition-all ${
+                              language === 'en'
+                                ? (isPink ? 'bg-white border-[#e11d48] text-[#9f1239] shadow-xs ring-1 ring-[#e11d48]' : darkMode ? 'bg-white/10 border-white/20 text-white shadow-xs' : 'bg-white border-[#2383e2] text-[#2383e2] shadow-xs')
+                                : (darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#a1a1aa] hover:text-white' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]')
+                            }`}
+                            title="English"
+                          >
+                            <span>🇬🇧</span>
+                            <span>English</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className={`my-1 border-t ${isPink ? 'border-[#fda4af]' : darkMode ? 'border-white/[0.06]' : 'border-[#eee]'}`} />
+
                       <button
                         onClick={onExportData}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors ${
@@ -823,7 +998,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Download size={13} />
-                        <span>Sao lưu JSON</span>
+                        <span>{t('backupJson', 'Sao lưu JSON')}</span>
                       </button>
 
                       <button
@@ -833,7 +1008,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Upload size={13} />
-                        <span>Khôi phục JSON</span>
+                        <span>{t('restoreJson', 'Khôi phục JSON')}</span>
                       </button>
 
                       <div className={`my-1 border-t ${isPink ? 'border-[#fda4af]' : darkMode ? 'border-white/[0.06]' : 'border-[#eee]'}`} />
@@ -848,44 +1023,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Archive size={13} className={isPink ? 'text-rose-600' : 'text-amber-500'} />
-                        <span>Kho lưu trữ & Thùng rác</span>
+                        <span>{t('archiveAndTrash', 'Kho lưu trữ & Thùng rác')}</span>
                       </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
 
-              {/* User login / status button */}
-              <div
-                onClick={onOpenAuthModal}
-                className={`flex items-center justify-between p-1.5 rounded-lg cursor-pointer transition-colors ${
-                  isPink ? 'hover:bg-[#fff0f3]/80' : darkMode ? 'hover:bg-[#2a2a2a]' : 'hover:bg-[#ebeae7]'
-                }`}
-                title={currentUser ? "Nhấn để quản lý hoặc đăng xuất tài khoản" : "Nhấn để đăng nhập"}
-              >
-                {currentUser ? (
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <img
-                      src={currentUser.avatar}
-                      alt={currentUser.name}
-                      referrerPolicy="no-referrer"
-                      className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-rose-400"
-                    />
-                    <div className="truncate text-left">
-                      <div className={`text-xs font-bold truncate leading-none ${textPrimary}`}>{currentUser.name}</div>
-                      <div className={`text-[10px] truncate mt-0.5 ${textMuted}`}>{currentUser.email}</div>
+              {/* Bottom Row: User Account + Collapse Sidebar Button */}
+              <div className="flex items-center gap-1 mt-0.5">
+                <div
+                  onClick={onOpenAuthModal}
+                  className={`flex-1 min-w-0 flex items-center justify-between p-1.5 rounded-lg cursor-pointer transition-colors ${
+                    isPink ? 'hover:bg-[#fff0f3]/80' : darkMode ? 'hover:bg-[#2a2a2a]' : 'hover:bg-[#ebeae7]'
+                  }`}
+                  title={currentUser ? "Nhấn để quản lý hoặc đăng xuất tài khoản" : "Nhấn để đăng nhập"}
+                >
+                  {currentUser ? (
+                    <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                      <img
+                        src={currentUser.avatar}
+                        alt={currentUser.name}
+                        referrerPolicy="no-referrer"
+                        className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-rose-400"
+                      />
+                      <div className="truncate text-left min-w-0">
+                        <div className={`text-xs font-bold truncate leading-none ${textPrimary}`}>{currentUser.name}</div>
+                        <div className={`text-[10px] truncate mt-0.5 ${textMuted}`}>{currentUser.email}</div>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className={`flex items-center gap-2 text-xs font-semibold ${isPink ? 'text-[#be123c]' : 'text-[#2383e2]'}`}>
-                    <LogIn size={14} />
-                    <span>Đăng nhập Email</span>
-                  </div>
-                )}
+                  ) : (
+                    <div className={`flex items-center gap-2 text-xs font-semibold ${isPink ? 'text-[#be123c]' : 'text-[#2383e2]'}`}>
+                      <LogIn size={14} />
+                      <span>Đăng nhập Email</span>
+                    </div>
+                  )}
 
-                <div className={`text-[10px] font-semibold shrink-0 ${textMuted} hover:text-red-500`}>
-                  {currentUser ? 'Tài khoản' : ''}
+                  <div className={`text-[10px] font-semibold shrink-0 ml-1 ${textMuted} hover:text-red-500`}>
+                    {currentUser ? 'Tài khoản' : ''}
+                  </div>
                 </div>
+
+                {/* Nút thu gọn thanh bên cạnh phần tài khoản */}
+                <button
+                  onClick={onToggleCollapse}
+                  className={`p-1.5 rounded-lg transition-colors shrink-0 ${
+                    isPink 
+                      ? 'text-[#881337]/70 hover:text-[#4c0519] hover:bg-[#fff0f3]' 
+                      : darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/10' : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
+                  }`}
+                  title="Thu gọn thanh bên"
+                >
+                  <PanelLeftClose size={16} />
+                </button>
               </div>
             </div>
           </motion.div>

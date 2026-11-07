@@ -1,4 +1,5 @@
 export type AppTheme = 'light' | 'dark' | 'qanda_pink';
+export type Language = 'vi' | 'en';
 
 export type StatusId = 'todo' | 'in_progress' | 'in_review' | 'done' | 'blocked' | string;
 
@@ -6,15 +7,18 @@ export type PriorityLevel = 'urgent' | 'high' | 'medium' | 'low' | 'none';
 
 export type NotionColor = 'gray' | 'brown' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'red' | 'qanda_pink';
 
+export type UserRole = 'admin' | 'member';
+
 export interface User {
   id: string;
   name: string;
   avatar?: string;
   email?: string;
   color?: string;
+  role?: UserRole;
 }
 
-export type MainSectionType = 'project' | 'my_tasks';
+export type MainSectionType = 'project' | 'my_tasks' | 'admin_dashboard';
 
 export interface Tag {
   id: string;

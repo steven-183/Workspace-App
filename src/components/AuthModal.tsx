@@ -27,7 +27,9 @@ import {
   Check, 
   ExternalLink, 
   ImageIcon, 
-  RefreshCw 
+  RefreshCw,
+  Shield,
+  ShieldCheck
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -345,11 +347,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="text-left overflow-hidden flex-1 min-w-0">
                     <div className="text-sm font-bold truncate text-[#37352f] dark:text-[#f4f4f5]">{currentUser.name}</div>
                     <div className="text-xs text-[#9b9a97] truncate mt-0.5">{currentUser.email}</div>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         <span>Đang hoạt động</span>
                       </span>
+
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                        currentUser.role === 'admin'
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                          : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+                      }`}>
+                        <ShieldCheck size={11} />
+                        <span>{currentUser.role === 'admin' ? 'Quản trị viên (Admin)' : 'Thành viên (Member)'}</span>
+                      </span>
+
+                      {onUpdateUser && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextRole = currentUser.role === 'admin' ? 'member' : 'admin';
+                            onUpdateUser({ ...currentUser, role: nextRole });
+                          }}
+                          className="text-[10px] font-semibold text-[#2383e2] hover:underline"
+                          title="Chuyển đổi vai trò để thử nghiệm phân quyền"
+                        >
+                          (Đổi sang {currentUser.role === 'admin' ? 'Member' : 'Admin'})
+                        </button>
+                      )}
 
                       <button
                         type="button"
@@ -358,7 +383,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           setAvatarError(null);
                           setAvatarSuccess(null);
                         }}
-                        className="text-[11px] font-medium text-[#2383e2] hover:underline"
+                        className="text-[11px] font-medium text-[#2383e2] hover:underline ml-auto"
                       >
                         {isEditingAvatar ? 'Đóng sửa ảnh' : 'Đổi ảnh đại diện'}
                       </button>

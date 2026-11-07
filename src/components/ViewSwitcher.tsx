@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AppTheme, FilterOptions, StatusId, TimelineZoom, ViewType } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   Kanban, 
   GitCommit, 
@@ -52,11 +53,22 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   totalTasks,
   filteredTasksCount,
 }) => {
+  const { language, t } = useLanguage();
   const isPink = appTheme === 'qanda_pink';
   const [showAddViewMenu, setShowAddViewMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showSearchInput, setShowSearchInput] = useState(!!filters.search);
+
+  const getViewLabel = (view: ViewType) => {
+    switch (view) {
+      case 'kanban': return t('viewKanban', 'Bảng');
+      case 'timeline': return t('viewTimeline', 'Dòng thời gian');
+      case 'table': return t('viewTable', 'Bảng dữ liệu');
+      case 'calendar': return t('viewCalendar', 'Lịch');
+      default: return view;
+    }
+  };
 
   const allPossibleViews: ViewType[] = ['kanban', 'timeline', 'table', 'calendar'];
   const unusedViews = allPossibleViews.filter((v) => !availableViews.includes(v));
@@ -103,7 +115,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                 }`}
               >
                 <Icon size={14} className={isActive ? (isPink ? 'text-[#e11d48]' : 'text-[#2383e2]') : ''} />
-                <span>{meta.label}</span>
+                <span>{getViewLabel(view)}</span>
               </button>
             );
           })}
@@ -153,7 +165,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                         }`}
                       >
                         <Icon size={13} className={isPink ? 'text-[#e11d48]' : ''} />
-                        <span>{meta.label}</span>
+                        <span>{getViewLabel(v)}</span>
                       </button>
                     );
                   })}
@@ -258,7 +270,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               }`}
             >
               <ArrowUpDown size={12} className={isPink ? 'text-[#e11d48]' : ''} />
-              <span>Sắp xếp</span>
+              <span>{t('sort', 'Sắp xếp')}</span>
             </button>
 
             {showSortMenu && (

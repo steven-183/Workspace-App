@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AppTheme, ProjectPage, User } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   Star, 
   Plus, 
@@ -25,6 +26,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   darkMode,
   appTheme = 'light',
 }) => {
+  const { t } = useLanguage();
   const isPink = appTheme === 'qanda_pink';
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.title);
@@ -90,7 +92,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               }`}
             >
               <Plus size={14} strokeWidth={2.5} />
-              <span>Tạo công việc</span>
+              <span>{t('newTask', 'Tạo công việc')}</span>
             </button>
           </div>
         </div>
