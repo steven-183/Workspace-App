@@ -501,16 +501,16 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             </div>
 
             <div className="space-y-1.5">
-              {section.items.map(({ project: p, task: t, isAssignee, isReviewer }) => {
-                const overdue = isOverdue(t.dueDate, t.status);
-                const isDone = t.status === 'done';
-                const isInReview = t.status === 'in_review';
-                const col = p.columns.find((c) => c.id === t.status);
+              {section.items.map(({ project: p, task: taskItem, isAssignee, isReviewer }) => {
+                const overdue = isOverdue(taskItem.dueDate, taskItem.status);
+                const isDone = taskItem.status === 'done';
+                const isInReview = taskItem.status === 'in_review';
+                const col = p.columns.find((c) => c.id === taskItem.status);
                 const colStyle = col ? NOTION_COLORS[col.color] : (isInReview ? NOTION_COLORS.purple : NOTION_COLORS.gray);
-                const priority = PRIORITY_CONFIG[t.priority] || PRIORITY_CONFIG.none;
+                const priority = PRIORITY_CONFIG[taskItem.priority] || PRIORITY_CONFIG.none;
 
-                const isUrgent = t.priority === 'urgent';
-                const isHigh = t.priority === 'high';
+                const isUrgent = taskItem.priority === 'urgent';
+                const isHigh = taskItem.priority === 'high';
                 const priorityGlowClass = isUrgent
                   ? (darkMode ? 'priority-glow-urgent border-l-rose-500' : 'priority-glow-urgent-light border-l-rose-500')
                   : isHigh
@@ -519,8 +519,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
 
                 return (
                   <div
-                    key={t.id}
-                    onClick={() => onTaskClick(p.id, t)}
+                    key={taskItem.id}
+                    onClick={() => onTaskClick(p.id, taskItem)}
                     className={`group flex items-center justify-between p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
                       isInReview && isReviewer
                         ? (darkMode ? 'bg-purple-950/20 border-purple-800/50 hover:bg-purple-950/30 linear-card-dark' : 'bg-purple-50/30 border-purple-200 hover:border-purple-300 linear-card-light')
@@ -537,9 +537,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           const nextStatus = isDone ? 'todo' : 'done';
-                          onUpdateTask(p.id, t.id, {
+                          onUpdateTask(p.id, taskItem.id, {
                             status: nextStatus,
-                            progress: nextStatus === 'done' ? 100 : t.progress,
+                            progress: nextStatus === 'done' ? 100 : taskItem.progress,
                           });
                         }}
                         className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
@@ -560,7 +560,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                                 : (isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#e0e0e0]' : 'text-[#37352f]')
                             }`}
                           >
-                            {t.title}
+                            {taskItem.title}
                           </span>
 
                           {/* Role indication badges */}
@@ -595,19 +595,19 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                         <div className={`flex items-center gap-3 text-[10px] mt-0.5 ${
                           isPink ? 'text-[#881337]/70' : 'text-[#9b9a97]'
                         }`}>
-                          {t.subtasks && t.subtasks.length > 0 && (
+                          {taskItem.subtasks && taskItem.subtasks.length > 0 && (
                             <div className="flex items-center gap-1">
                               <CheckSquare size={10} />
                               <span>
-                                {t.subtasks.filter((s) => s.completed).length}/{t.subtasks.length} {language === 'en' ? 'subtasks' : 'việc con'}
+                                {taskItem.subtasks.filter((s) => s.completed).length}/{taskItem.subtasks.length} {language === 'en' ? 'subtasks' : 'việc con'}
                               </span>
                             </div>
                           )}
 
-                          {t.creator && (
+                          {taskItem.creator && (
                             <div className="hidden md:flex items-center gap-1">
                               <UserCheck size={10} className="text-purple-500" />
-                              <span>{t('reviewerPrefix', 'Người duyệt')}: {t.creator.name}</span>
+                              <span>{language === 'en' ? 'Reviewer' : 'Người duyệt'}: {taskItem.creator.name}</span>
                             </div>
                           )}
                         </div>
@@ -617,24 +617,24 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                     {/* Right Meta badges */}
                     <div className="flex items-center gap-2 shrink-0 text-xs">
                       {/* Priority */}
-                      {t.priority !== 'none' && (
+                      {taskItem.priority !== 'none' && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${priority.badgeBg} ${priority.badgeText}`}>
-                          {translatePriority(t.priority)}
+                          {translatePriority(taskItem.priority, language)}
                         </span>
                       )}
 
                       {/* Status */}
                       <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${colStyle.badgeBg}`}>
-                        {translateStatus(col?.title || (t.status === 'in_review' ? 'Chờ review' : t.status))}
+                        {translateStatus(col?.title || (taskItem.status === 'in_review' ? 'Chờ review' : taskItem.status), language)}
                       </span>
 
                       {/* Due Date */}
-                      {t.dueDate && (
+                      {taskItem.dueDate && (
                         <span
                           className={`text-[11px] font-medium flex items-center gap-1 px-1.5 py-0.5 rounded ${
                             overdue
                               ? 'bg-red-50 text-red-600 dark:bg-red-950/40 border border-red-200 dark:border-red-900 font-bold'
-                              : isDueToday(t.dueDate)
+                              : isDueToday(taskItem.dueDate)
                               ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40'
                               : isPink
                               ? 'text-[#881337]'
@@ -642,7 +642,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                           }`}
                         >
                           <Calendar size={11} />
-                          <span>{formatShortDate(t.dueDate)}</span>
+                          <span>{formatShortDate(taskItem.dueDate)}</span>
                         </span>
                       )}
 
