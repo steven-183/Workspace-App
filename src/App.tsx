@@ -19,6 +19,7 @@ import { ToastNotificationContainer } from './components/ToastNotificationContai
 import { Lock, LogIn, ShieldAlert } from 'lucide-react';
 import { addDays, getTodayString, isDueThisWeek, isDueToday, isOverdue } from './utils/dateUtils';
 import { getStoredNotifications, saveStoredNotifications, triggerToast, dispatchTaskEvent, sendBrowserNotification } from './utils/notificationService';
+import { useLanguage } from './context/LanguageContext';
 import { 
   getSupabase, 
   fetchAllProjectsFromSupabase, 
@@ -41,6 +42,8 @@ const THEME_KEY = 'notion_tasks_app_theme';
 const USER_KEY = 'notion_tasks_logged_in_user_v1';
 
 export default function App() {
+  const { language } = useLanguage();
+
   // Load initial projects from localStorage or default with teamId & column migration
   const [projects, setProjects] = useState<ProjectPage[]>(() => {
     try {
@@ -234,16 +237,24 @@ export default function App() {
     }
 
     triggerToast({
-      title: 'Đã cập nhật phân quyền',
-      message: `Đã cập nhật vai trò người dùng thành ${newRole === 'admin' ? 'Quản trị viên (Admin)' : 'Thành viên (Member)'}.`,
+      title: language === 'en' ? 'Permissions Updated' : 'Đã cập nhật phân quyền',
+      message: language === 'en' 
+        ? `Updated user role to ${newRole === 'admin' ? 'Administrator (Admin)' : 'Member'}.`
+        : `Đã cập nhật vai trò người dùng thành ${newRole === 'admin' ? 'Quản trị viên (Admin)' : 'Thành viên (Member)'}.`,
       type: 'property_change',
     });
   };
 
   const handleSendAdminReminder = (targetUser: User, overdueTasks: Task[], customMessage?: string) => {
     const taskTitles = overdueTasks.map((t) => `"${t.title}"`).slice(0, 3).join(', ');
-    const moreCount = overdueTasks.length > 3 ? ` và ${overdueTasks.length - 3} việc khác` : '';
-    const message = customMessage || `Admin nhắc nhở bạn có ${overdueTasks.length} công việc quá hạn cần hoàn thành sớm: ${taskTitles}${moreCount}.`;
+    const moreCount = overdueTasks.length > 3 
+      ? (language === 'en' ? ` and ${overdueTasks.length - 3} other tasks` : ` và ${overdueTasks.length - 3} việc khác`) 
+      : '';
+    const message = customMessage || (
+      language === 'en'
+        ? `Admin reminder: you have ${overdueTasks.length} overdue task(s) that need completion: ${taskTitles}${moreCount}.`
+        : `Admin nhắc nhở bạn có ${overdueTasks.length} công việc quá hạn cần hoàn thành sớm: ${taskTitles}${moreCount}.`
+    );
 
     const now = new Date().toISOString();
     const reminderNotif: TaskNotification = {
@@ -252,17 +263,17 @@ export default function App() {
       recipientEmail: targetUser.email,
       recipientName: targetUser.name,
       taskId: overdueTasks[0]?.id || '',
-      taskTitle: overdueTasks[0]?.title || 'Công việc quá hạn',
+      taskTitle: overdueTasks[0]?.title || (language === 'en' ? 'Overdue Task' : 'Công việc quá hạn'),
       projectId: activeProjectId,
-      projectTitle: 'Nhắc nhở từ Quản trị viên',
+      projectTitle: language === 'en' ? 'Admin Reminder' : 'Nhắc nhở từ Quản trị viên',
       actor: {
         id: currentUser?.id || 'admin',
-        name: currentUser?.name || 'Quản trị viên',
+        name: currentUser?.name || (language === 'en' ? 'Administrator' : 'Quản trị viên'),
         avatar: currentUser?.avatar,
         email: currentUser?.email,
       },
       type: 'status_change',
-      title: '⚠️ Nhắc nhở công việc quá hạn từ Admin',
+      title: language === 'en' ? '⚠️ Overdue Task Reminder from Admin' : '⚠️ Nhắc nhở công việc quá hạn từ Admin',
       message,
       createdAt: now,
       isRead: false,
@@ -276,8 +287,8 @@ export default function App() {
     broadcastTaskNotifications([reminderNotif]).catch(() => {});
 
     triggerToast({
-      title: 'Đã gửi nhắc nhở thành công',
-      message: `Đã gửi thông báo đôn đốc tới ${targetUser.name}.`,
+      title: language === 'en' ? 'Reminder Sent Successfully' : 'Đã gửi nhắc nhở thành công',
+      message: language === 'en' ? `Sent reminder notification to ${targetUser.name}.` : `Đã gửi thông báo đôn đốc tới ${targetUser.name}.`,
       type: 'property_change',
     });
   };
@@ -288,25 +299,29 @@ export default function App() {
 
     userOverdueMap.forEach(({ user, tasks }) => {
       const taskTitles = tasks.map((t) => `"${t.title}"`).slice(0, 2).join(', ');
-      const moreCount = tasks.length > 2 ? ` và ${tasks.length - 2} việc khác` : '';
+      const moreCount = tasks.length > 2 
+        ? (language === 'en' ? ` and ${tasks.length - 2} other tasks` : ` và ${tasks.length - 2} việc khác`) 
+        : '';
       newNotifs.push({
         id: `batch-reminder-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         recipientId: user.id || user.email || '',
         recipientEmail: user.email,
         recipientName: user.name,
         taskId: tasks[0]?.id || '',
-        taskTitle: tasks[0]?.title || 'Công việc quá hạn',
+        taskTitle: tasks[0]?.title || (language === 'en' ? 'Overdue Task' : 'Công việc quá hạn'),
         projectId: activeProjectId,
-        projectTitle: 'Nhắc nhở toàn hệ thống',
+        projectTitle: language === 'en' ? 'System-wide Reminder' : 'Nhắc nhở toàn hệ thống',
         actor: {
           id: currentUser?.id || 'admin',
-          name: currentUser?.name || 'Quản trị viên',
+          name: currentUser?.name || (language === 'en' ? 'Administrator' : 'Quản trị viên'),
           avatar: currentUser?.avatar,
           email: currentUser?.email,
         },
         type: 'status_change',
-        title: '⚠️ Đôn đốc tiến độ công việc quá hạn',
-        message: `Admin thông báo bạn có ${tasks.length} công việc quá hạn cần ưu tiên xử lý: ${taskTitles}${moreCount}.`,
+        title: language === 'en' ? '⚠️ Overdue Tasks Expedited' : '⚠️ Đôn đốc tiến độ công việc quá hạn',
+        message: language === 'en' 
+          ? `Admin notice: you have ${tasks.length} overdue task(s) requiring urgent attention: ${taskTitles}${moreCount}.`
+          : `Admin thông báo bạn có ${tasks.length} công việc quá hạn cần ưu tiên xử lý: ${taskTitles}${moreCount}.`,
         createdAt: now,
         isRead: false,
       });
@@ -320,8 +335,8 @@ export default function App() {
     broadcastTaskNotifications(newNotifs).catch(() => {});
 
     triggerToast({
-      title: 'Đã gửi nhắc nhở đồng loạt',
-      message: `Đã gửi thông báo tới ${userOverdueMap.length} nhân sự có công việc trễ hạn.`,
+      title: language === 'en' ? 'Batch Reminders Sent' : 'Đã gửi nhắc nhở đồng loạt',
+      message: language === 'en' ? `Sent reminders to ${userOverdueMap.length} team members with overdue tasks.` : `Đã gửi thông báo tới ${userOverdueMap.length} nhân sự có công việc trễ hạn.`,
       type: 'property_change',
     });
   };
@@ -877,8 +892,10 @@ export default function App() {
     deleteProjectFromSupabase(projId, updatedTasks);
 
     triggerToast({
-      title: 'Đã xóa bảng công việc',
-      message: `Bảng "${targetProject.title}" đã được xóa. ${taskCount} công việc đã được chuyển vào Thùng rác.`,
+      title: language === 'en' ? 'Board Deleted' : 'Đã xóa bảng công việc',
+      message: language === 'en' 
+        ? `Board "${targetProject.title}" has been deleted. ${taskCount} task(s) moved to Trash.` 
+        : `Bảng "${targetProject.title}" đã được xóa. ${taskCount} công việc đã được chuyển vào Thùng rác.`,
       type: 'property_change',
     });
   };
@@ -1089,11 +1106,13 @@ export default function App() {
     setSelectedTask(null);
     setSelectedTaskProjectId(null);
     triggerToast({
-      title: 'Đã chuyển vào Thùng rác',
-      message: `Công việc "${taskTitle || taskId}" đã được chuyển vào Thùng rác. Bạn có thể khôi phục bất cứ lúc nào.`,
+      title: language === 'en' ? 'Moved to Trash' : 'Đã chuyển vào Thùng rác',
+      message: language === 'en' 
+        ? `Task "${taskTitle || taskId}" has been moved to Trash. You can restore it anytime.`
+        : `Công việc "${taskTitle || taskId}" đã được chuyển vào Thùng rác. Bạn có thể khôi phục bất cứ lúc nào.`,
       type: 'property_change',
     });
-  }, [selectedTaskProjectId, activeProjectId]);
+  }, [selectedTaskProjectId, activeProjectId, language]);
 
   // Archive task
   const handleArchiveTask = useCallback((taskId: string) => {
@@ -1121,11 +1140,13 @@ export default function App() {
     setSelectedTask(null);
     setSelectedTaskProjectId(null);
     triggerToast({
-      title: 'Đã lưu trữ công việc',
-      message: `Công việc "${taskTitle || taskId}" đã được chuyển vào Kho lưu trữ.`,
+      title: language === 'en' ? 'Task Archived' : 'Đã lưu trữ công việc',
+      message: language === 'en' 
+        ? `Task "${taskTitle || taskId}" has been moved to Archive.`
+        : `Công việc "${taskTitle || taskId}" đã được chuyển vào Kho lưu trữ.`,
       type: 'property_change',
     });
-  }, [selectedTaskProjectId, activeProjectId]);
+  }, [selectedTaskProjectId, activeProjectId, language]);
 
   // Unarchive task
   const handleUnarchiveTask = useCallback((projId: string, taskId: string) => {
@@ -1150,11 +1171,13 @@ export default function App() {
       })
     );
     triggerToast({
-      title: 'Đã khôi phục từ Kho lưu trữ',
-      message: `Công việc "${taskTitle || taskId}" đã được đưa trở lại danh sách hoạt động.`,
+      title: language === 'en' ? 'Restored from Archive' : 'Đã khôi phục từ Kho lưu trữ',
+      message: language === 'en' 
+        ? `Task "${taskTitle || taskId}" returned to active board.`
+        : `Công việc "${taskTitle || taskId}" đã được đưa trở lại danh sách hoạt động.`,
       type: 'property_change',
     });
-  }, []);
+  }, [language]);
 
   // Restore task from trash
   const handleRestoreTask = useCallback((projId: string, taskId: string) => {
@@ -1188,11 +1211,13 @@ export default function App() {
       })
     );
     triggerToast({
-      title: 'Đã khôi phục công việc',
-      message: `Công việc "${taskTitle || taskId}" đã được khôi phục từ Thùng rác.`,
+      title: language === 'en' ? 'Task Restored' : 'Đã khôi phục công việc',
+      message: language === 'en' 
+        ? `Task "${taskTitle || taskId}" has been restored from Trash.`
+        : `Công việc "${taskTitle || taskId}" đã được khôi phục từ Thùng rác.`,
       type: 'property_change',
     });
-  }, []);
+  }, [language]);
 
   // Permanent Delete task
   const handlePermanentDeleteTask = useCallback((projId: string, taskId: string) => {
@@ -1204,11 +1229,11 @@ export default function App() {
     );
     deleteTaskFromSupabase(taskId);
     triggerToast({
-      title: 'Đã xóa vĩnh viễn',
-      message: 'Công việc đã được xóa hoàn toàn khỏi hệ thống.',
+      title: language === 'en' ? 'Permanently Deleted' : 'Đã xóa vĩnh viễn',
+      message: language === 'en' ? 'Task has been permanently deleted from the system.' : 'Công việc đã được xóa hoàn toàn khỏi hệ thống.',
       type: 'property_change',
     });
-  }, []);
+  }, [language]);
 
   // Empty Trash for project
   const handleEmptyTrash = useCallback((projId: string) => {
@@ -1221,11 +1246,11 @@ export default function App() {
       })
     );
     triggerToast({
-      title: 'Đã dọn sạch Thùng rác',
-      message: 'Tất cả công việc trong thùng rác đã được xóa vĩnh viễn.',
+      title: language === 'en' ? 'Trash Emptied' : 'Đã dọn sạch Thùng rác',
+      message: language === 'en' ? 'All tasks in the trash have been permanently deleted.' : 'Tất cả công việc trong thùng rác đã được xóa vĩnh viễn.',
       type: 'property_change',
     });
-  }, []);
+  }, [language]);
 
   const handleDeleteTask = useCallback((taskId: string) => {
     handleSoftDeleteTask(taskId);
@@ -1268,22 +1293,30 @@ export default function App() {
           const targetCol = p.columns.find((c) => c.id === targetStatus);
           const colName = targetCol?.title || targetStatus;
 
+          const displayColName = targetCol ? targetCol.title : targetStatus;
+
           dispatchTaskEvent({
             project: p,
             task: updatedTargetTask,
             actor: currentUser,
             type: 'status_change',
-            title: isCompleted ? 'Đã hoàn thành công việc' : 'Thay đổi trạng thái công việc',
+            title: isCompleted 
+              ? (language === 'en' ? 'Task Completed' : 'Đã hoàn thành công việc') 
+              : (language === 'en' ? 'Task Status Changed' : 'Thay đổi trạng thái công việc'),
             message: isCompleted 
-              ? `${currentUser.name} đã hoàn thành công việc "${updatedTargetTask.title}"` 
-              : `${currentUser.name} đã chuyển "${updatedTargetTask.title}" sang trạng thái "${colName}"`,
+              ? (language === 'en' 
+                  ? `${currentUser.name} completed task "${updatedTargetTask.title}"` 
+                  : `${currentUser.name} đã hoàn thành công việc "${updatedTargetTask.title}"`)
+              : (language === 'en'
+                  ? `${currentUser.name} moved "${updatedTargetTask.title}" to "${displayColName}"`
+                  : `${currentUser.name} đã chuyển "${updatedTargetTask.title}" sang trạng thái "${colName}"`),
           });
         }
 
         return { ...p, tasks: finalTasks };
       })
     );
-  }, [activeProjectId, currentUser]);
+  }, [activeProjectId, currentUser, language]);
 
   // Timeline dragging & resizing
   const handleUpdateTaskDates = useCallback((taskId: string, newStart: string, newDue: string) => {

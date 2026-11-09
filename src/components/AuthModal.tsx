@@ -31,6 +31,7 @@ import {
   Shield,
   ShieldCheck
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onUpdateUser,
   darkMode,
 }) => {
+  const { language } = useLanguage();
   const [authTab, setAuthTab] = useState<AuthTab>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -261,9 +263,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold leading-tight">Tài khoản thành viên</h2>
+                <h2 className="text-sm font-bold leading-tight">
+                  {language === 'en' ? 'Member Account' : 'Tài khoản thành viên'}
+                </h2>
               </div>
-              <p className="text-[11px] text-[#9b9a97]">Đăng nhập để đồng bộ công việc & dữ liệu nhóm</p>
+              <p className="text-[11px] text-[#9b9a97]">
+                {language === 'en' ? 'Sign in to sync tasks & team data' : 'Đăng nhập để đồng bộ công việc & dữ liệu nhóm'}
+              </p>
             </div>
           </div>
 
@@ -291,7 +297,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               }`}
             >
               <LogIn size={13} />
-              <span>Đăng nhập</span>
+              <span>{language === 'en' ? 'Sign In' : 'Đăng nhập'}</span>
             </button>
             <button
               onClick={() => { setAuthTab('signup'); setErrorMessage(null); }}
@@ -302,7 +308,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               }`}
             >
               <UserPlus size={13} />
-              <span>Đăng ký</span>
+              <span>{language === 'en' ? 'Sign Up' : 'Đăng ký'}</span>
             </button>
           </div>
 
@@ -320,9 +326,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       referrerPolicy="no-referrer"
                       className="w-14 h-14 rounded-2xl ring-2 ring-[#2383e2]/40 object-cover shadow-sm bg-blue-500/10"
                       onError={() => {
-                        // Fallback if custom URL fails to load
                         if (avatarPreview && avatarPreview !== currentUser.avatar) {
-                          setAvatarError('Không thể tải hình ảnh từ đường liên kết này. Vui lòng kiểm tra lại quyền truy cập hoặc link ảnh.');
+                          setAvatarError(language === 'en' ? 'Could not load image from link.' : 'Không thể tải hình ảnh từ đường liên kết này.');
                         }
                       }}
                     />
@@ -338,7 +343,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         }
                       }}
                       className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#2383e2] hover:bg-[#1d6ec0] text-white flex items-center justify-center shadow-md transition-all hover:scale-110"
-                      title="Chỉnh sửa ảnh đại diện"
+                      title={language === 'en' ? 'Edit avatar' : 'Chỉnh sửa ảnh đại diện'}
                     >
                       <Camera size={13} />
                     </button>
@@ -350,7 +355,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        <span>Đang hoạt động</span>
+                        <span>{language === 'en' ? 'Active' : 'Đang hoạt động'}</span>
                       </span>
 
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -359,7 +364,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
                       }`}>
                         <ShieldCheck size={11} />
-                        <span>{currentUser.role === 'admin' ? 'Quản trị viên (Admin)' : 'Thành viên (Member)'}</span>
+                        <span>{currentUser.role === 'admin' ? (language === 'en' ? 'Admin' : 'Quản trị viên (Admin)') : (language === 'en' ? 'Member' : 'Thành viên (Member)')}</span>
                       </span>
 
                       {onUpdateUser && (
@@ -370,9 +375,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             onUpdateUser({ ...currentUser, role: nextRole });
                           }}
                           className="text-[10px] font-semibold text-[#2383e2] hover:underline"
-                          title="Chuyển đổi vai trò để thử nghiệm phân quyền"
+                          title="Switch role"
                         >
-                          (Đổi sang {currentUser.role === 'admin' ? 'Member' : 'Admin'})
+                          ({language === 'en' ? `Switch to ${currentUser.role === 'admin' ? 'Member' : 'Admin'}` : `Đổi sang ${currentUser.role === 'admin' ? 'Member' : 'Admin'}`})
                         </button>
                       )}
 
@@ -385,7 +390,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         }}
                         className="text-[11px] font-medium text-[#2383e2] hover:underline ml-auto"
                       >
-                        {isEditingAvatar ? 'Đóng sửa ảnh' : 'Đổi ảnh đại diện'}
+                        {isEditingAvatar ? (language === 'en' ? 'Close editor' : 'Đóng sửa ảnh') : (language === 'en' ? 'Change avatar' : 'Đổi ảnh đại diện')}
                       </button>
                     </div>
                   </div>
@@ -400,14 +405,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-semibold flex items-center gap-1.5 text-[#37352f] dark:text-white">
                           <ImageIcon size={13} className="text-[#2383e2]" />
-                          <span>Link ảnh đại diện (Google Drive hoặc URL)</span>
+                          <span>{language === 'en' ? 'Avatar URL (Google Drive or direct link)' : 'Link ảnh đại diện (Google Drive hoặc URL)'}</span>
                         </label>
                       </div>
 
                       <div className="relative">
                         <input
                           type="url"
-                          placeholder="Dán link Google Drive (ví dụ: https://drive.google.com/file/d/...)"
+                          placeholder={language === 'en' ? 'Paste Google Drive or image URL...' : 'Dán link Google Drive (ví dụ: https://drive.google.com/file/d/...)'}
                           value={avatarUrlInput}
                           onChange={(e) => {
                             const raw = e.target.value;
@@ -433,7 +438,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
 
                       <p className="text-[11px] text-[#9b9a97] leading-relaxed">
-                        💡 <strong>Mẹo với Google Drive:</strong> Bạn chỉ cần sao chép liên kết chia sẻ bất kỳ của tệp ảnh trên Drive và đặt quyền <span className="underline font-medium">"Bất kỳ ai có đường liên kết"</span>. Hệ thống sẽ tự động tối ưu link xem trực tiếp siêu nhẹ.
+                        {language === 'en' 
+                          ? '💡 Tip: For Google Drive images, ensure share permission is set to "Anyone with the link". Direct view will be automatically enabled.' 
+                          : '💡 Mẹo với Google Drive: Bạn chỉ cần sao chép liên kết chia sẻ bất kỳ của tệp ảnh trên Drive và đặt quyền "Bất kỳ ai có đường liên kết". Hệ thống sẽ tự động tối ưu link xem trực tiếp siêu nhẹ.'}
                       </p>
                     </div>
 
@@ -456,13 +463,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         disabled={isSavingAvatar}
                         onClick={async () => {
                           if (!avatarUrlInput.trim()) {
-                            setAvatarError('Vui lòng nhập đường link ảnh.');
+                            setAvatarError(language === 'en' ? 'Please enter image URL.' : 'Vui lòng nhập đường link ảnh.');
                             return;
                           }
 
                           const { directUrl } = convertGoogleDriveImageUrl(avatarUrlInput);
                           if (!directUrl) {
-                            setAvatarError('Đường dẫn ảnh không hợp lệ.');
+                            setAvatarError(language === 'en' ? 'Invalid image URL.' : 'Đường dẫn ảnh không hợp lệ.');
                             return;
                           }
 
@@ -490,14 +497,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             }
 
                             setIsSavingAvatar(false);
-                            setAvatarSuccess('Đã cập nhật ảnh đại diện thành công!');
+                            setAvatarSuccess(language === 'en' ? 'Avatar updated successfully!' : 'Đã cập nhật ảnh đại diện thành công!');
                             setTimeout(() => {
                               setIsEditingAvatar(false);
                               setAvatarSuccess(null);
                             }, 1200);
                           } catch (err: any) {
                             setIsSavingAvatar(false);
-                            setAvatarError(err?.message || 'Có lỗi xảy ra khi lưu ảnh đại diện.');
+                            setAvatarError(err?.message || (language === 'en' ? 'Failed to update avatar.' : 'Có lỗi xảy ra khi lưu ảnh đại diện.'));
                           }
                         }}
                         className="flex-1 py-2 px-3 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-bold rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
@@ -507,13 +514,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         ) : (
                           <Check size={13} strokeWidth={2.5} />
                         )}
-                        <span>Lưu ảnh đại diện</span>
+                        <span>{language === 'en' ? 'Save avatar' : 'Lưu ảnh đại diện'}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => {
-                          // Reset to Dicebear initials avatar based on current name
                           const defaultAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name)}&backgroundColor=2383e2`;
                           setAvatarUrlInput(defaultAvatar);
                           setAvatarPreview(defaultAvatar);
@@ -523,9 +529,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             ? 'border-white/10 text-[#a1a1aa] hover:text-white hover:bg-white/[0.06]' 
                             : 'border-[#cfceca] text-[#787774] hover:text-black hover:bg-black/5'
                         }`}
-                        title="Dùng avatar chữ cái mặc định"
+                        title={language === 'en' ? 'Use default initials avatar' : 'Dùng avatar chữ cái mặc định'}
                       >
-                        Mặc định
+                        {language === 'en' ? 'Default' : 'Mặc định'}
                       </button>
                     </div>
                   </div>
@@ -542,7 +548,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <LogIn size={15} className="rotate-180" />
-                  <span>Đăng xuất khỏi tài khoản này</span>
+                  <span>{language === 'en' ? 'Sign out of this account' : 'Đăng xuất khỏi tài khoản này'}</span>
                 </button>
               </div>
             </div>
@@ -566,9 +572,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="flex items-start gap-2">
                 <HelpCircle size={15} className="shrink-0 text-amber-500 mt-0.5" />
                 <div className="space-y-1">
-                  <p className="font-bold">Tại sao có thông báo "Email not confirmed"?</p>
+                  <p className="font-bold">{language === 'en' ? 'Why "Email not confirmed"?' : 'Tại sao có thông báo "Email not confirmed"?'}</p>
                   <p className="text-[11px] leading-relaxed opacity-90">
-                    Mặc định tài khoản Supabase yêu cầu người dùng phải bấm vào đường link trong email xác thực để kích hoạt trước khi được phép đăng nhập.
+                    {language === 'en' 
+                      ? 'Supabase accounts require clicking the verification link in your confirmation email before logging in.'
+                      : 'Mặc định tài khoản Supabase yêu cầu người dùng phải bấm vào đường link trong email xác thực để kích hoạt trước khi được phép đăng nhập.'}
                   </p>
                 </div>
               </div>
@@ -581,13 +589,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 text-[11px]"
                 >
                   <Send size={12} />
-                  <span>{isResending ? 'Đang gửi...' : 'Gửi lại email xác thực'}</span>
+                  <span>{isResending ? (language === 'en' ? 'Sending...' : 'Đang gửi...') : (language === 'en' ? 'Resend confirmation email' : 'Gửi lại email xác thực')}</span>
                 </button>
               </div>
 
               <div className="text-[10.5px] border-t border-amber-200/50 dark:border-amber-800/40 pt-2 opacity-85 space-y-0.5">
-                <p className="font-semibold text-amber-600 dark:text-amber-400">💡 Mẹo cho Admin (Đăng nhập ngay không cần xác thực):</p>
-                <p>Vào <strong>Supabase Dashboard</strong> → <strong>Authentication</strong> → <strong>Providers</strong> → chọn <strong>Email</strong> → Tắt mục <strong>"Confirm email"</strong> → Nhấn <strong>Save</strong>.</p>
+                <p className="font-semibold text-amber-600 dark:text-amber-400">💡 {language === 'en' ? 'Admin Tip (Login without confirmation):' : 'Mẹo cho Admin (Đăng nhập ngay không cần xác thực):'}</p>
+                <p>{language === 'en' ? 'In Supabase Dashboard → Authentication → Providers → Email → Turn off "Confirm email" → Save.' : 'Vào Supabase Dashboard → Authentication → Providers → chọn Email → Tắt mục "Confirm email" → Nhấn Save.'}</p>
               </div>
             </div>
           )}
@@ -604,7 +612,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleSignIn} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                  Địa chỉ Email <span className="text-red-500">*</span>
+                  {language === 'en' ? 'Email Address' : 'Địa chỉ Email'} <span className="text-red-500">*</span>
                 </label>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
                   darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
@@ -613,7 +621,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="email"
                     required
-                    placeholder="ví dụ: steven.mai@mathpresso.com"
+                    placeholder={language === 'en' ? 'e.g. name@company.com' : 'ví dụ: steven.mai@mathpresso.com'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
@@ -623,7 +631,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                  Mật khẩu <span className="text-red-500">*</span>
+                  {language === 'en' ? 'Password' : 'Mật khẩu'} <span className="text-red-500">*</span>
                 </label>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
                   darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
@@ -632,7 +640,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="Nhập mật khẩu..."
+                    placeholder={language === 'en' ? 'Enter password...' : 'Nhập mật khẩu...'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
@@ -654,7 +662,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="w-full py-2.5 px-4 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   <LogIn size={15} />
-                  <span>{isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}</span>
+                  <span>{isSubmitting ? (language === 'en' ? 'Processing...' : 'Đang xử lý...') : (language === 'en' ? 'Sign In' : 'Đăng nhập')}</span>
                 </button>
               </div>
 
@@ -664,7 +672,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   onClick={() => setAuthTab('signup')}
                   className="text-xs text-[#2383e2] hover:underline"
                 >
-                  Chưa có tài khoản? Đăng ký ngay
+                  {language === 'en' ? "Don't have an account? Sign up now" : 'Chưa có tài khoản? Đăng ký ngay'}
                 </button>
               </div>
             </form>
@@ -675,7 +683,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <form onSubmit={handleSignUp} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                  Họ và tên hiển thị <span className="text-red-500">*</span>
+                  {language === 'en' ? 'Full Name' : 'Họ và tên hiển thị'} <span className="text-red-500">*</span>
                 </label>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
                   darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
@@ -684,7 +692,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="ví dụ: Steven Mai"
+                    placeholder={language === 'en' ? 'e.g. Alex Johnson' : 'ví dụ: Steven Mai'}
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="w-full bg-transparent outline-none text-xs text-black dark:text-white font-medium placeholder:text-[#9b9a97]"
@@ -694,7 +702,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                  Địa chỉ Email <span className="text-red-500">*</span>
+                  {language === 'en' ? 'Email Address' : 'Địa chỉ Email'} <span className="text-red-500">*</span>
                 </label>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
                   darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
@@ -713,7 +721,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                  Mật khẩu (tối thiểu 6 ký tự) <span className="text-red-500">*</span>
+                  {language === 'en' ? 'Password (minimum 6 characters)' : 'Mật khẩu (tối thiểu 6 ký tự)'} <span className="text-red-500">*</span>
                 </label>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
                   darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
@@ -733,7 +741,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-[#555] dark:text-[#9b9a97] mb-1">
-                  Xác nhận lại mật khẩu <span className="text-red-500">*</span>
+                  {language === 'en' ? 'Confirm Password' : 'Xác nhận lại mật khẩu'} <span className="text-red-500">*</span>
                 </label>
                 <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
                   darkMode ? 'bg-[#181818] border-[#383838] focus-within:border-[#2383e2]' : 'bg-white border-[#cfceca] focus-within:border-[#2383e2] shadow-xs'
@@ -758,7 +766,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   <UserPlus size={15} />
-                  <span>{isSubmitting ? 'Đang đăng ký...' : 'Tạo tài khoản mới'}</span>
+                  <span>{isSubmitting ? (language === 'en' ? 'Creating account...' : 'Đang đăng ký...') : (language === 'en' ? 'Create new account' : 'Tạo tài khoản mới')}</span>
                 </button>
               </div>
             </form>

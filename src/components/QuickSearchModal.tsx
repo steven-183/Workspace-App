@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ProjectPage, Task } from '../types';
-import { Search, X, Calendar, CheckSquare, Layers, ArrowRight } from 'lucide-react';
-import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
+import { Search, X } from 'lucide-react';
+import { NOTION_COLORS } from '../utils/notionStyles';
 import { formatShortDate } from '../utils/dateUtils';
+import { useLanguage } from '../context/LanguageContext';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
   onSelectTask,
   darkMode,
 }) => {
+  const { language, t, translateStatus } = useLanguage();
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
           <Search size={18} className={darkMode ? 'text-[#a1a1aa]' : 'text-[#9b9a97]'} />
           <input
             type="text"
-            placeholder="Tìm kiếm công việc, dự án, thẻ nhãn hoặc nội dung..."
+            placeholder={t('quickSearchPlaceholder', 'Tìm kiếm công việc, dự án, thẻ nhãn hoặc nội dung...')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent outline-none text-sm placeholder-[#71717a] text-[#f4f4f5]"
@@ -98,7 +100,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
           {matchingProjects.length > 0 && (
             <div>
               <div className="text-[11px] font-semibold text-[#9b9a97] uppercase tracking-wider mb-1.5 px-2">
-                Dự án & Bảng ({matchingProjects.length})
+                {language === 'en' ? `Projects & Boards (${matchingProjects.length})` : `Dự án & Bảng (${matchingProjects.length})`}
               </div>
               <div className="space-y-1">
                 {matchingProjects.map((p) => (
@@ -116,7 +118,9 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
                       <span className="text-base">{p.icon || '📄'}</span>
                       <span className="font-semibold">{p.title}</span>
                     </div>
-                    <span className="text-[#9b9a97] text-[11px]">{p.tasks.length} công việc</span>
+                    <span className="text-[#9b9a97] text-[11px]">
+                      {p.tasks.length} {language === 'en' ? 'tasks' : 'công việc'}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -127,7 +131,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
           {matchingTasks.length > 0 && (
             <div>
               <div className="text-[11px] font-semibold text-[#9b9a97] uppercase tracking-wider mb-1.5 px-2">
-                Công việc ({matchingTasks.length})
+                {language === 'en' ? `Tasks (${matchingTasks.length})` : `Công việc (${matchingTasks.length})`}
               </div>
               <div className="space-y-1">
                 {matchingTasks.slice(0, 15).map(({ project: p, task: t }) => {
@@ -156,7 +160,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
 
                       <div className="flex items-center gap-2 shrink-0">
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${colStyle.badgeBg}`}>
-                          {col?.title || t.status}
+                          {translateStatus(col?.title || t.status)}
                         </span>
                         {t.dueDate && (
                           <span className="text-[10px] text-[#9b9a97] font-mono">
@@ -173,7 +177,9 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
 
           {matchingProjects.length === 0 && matchingTasks.length === 0 && (
             <div className="py-8 text-center text-xs text-[#9b9a97]">
-              Không tìm thấy kết quả nào phù hợp với từ khóa "{query}".
+              {language === 'en' 
+                ? `No matching results for "${query}".`
+                : `Không tìm thấy kết quả nào phù hợp với từ khóa "${query}".`}
             </div>
           )}
         </div>

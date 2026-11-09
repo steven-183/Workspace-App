@@ -131,7 +131,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                     ? 'text-[#888] hover:bg-[#262626]' 
                     : 'text-[#787774] hover:bg-[#efedea]'
                 }`}
-                title="Thêm chế độ xem"
+                title={language === 'en' ? 'Add view' : 'Thêm chế độ xem'}
               >
                 <Plus size={14} />
               </button>
@@ -144,7 +144,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                     ? 'bg-[#121316]/95 border-white/10 linear-modal-dark' 
                     : 'bg-white/95 border-[#e3e2e0] shadow-lg'
                 }`}>
-                  <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : darkMode ? 'text-[#71717a]' : 'text-[#9b9a97]'}`}>Thêm chế độ xem</div>
+                  <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : darkMode ? 'text-[#71717a]' : 'text-[#9b9a97]'}`}>
+                    {language === 'en' ? 'Add view' : 'Thêm chế độ xem'}
+                  </div>
                   {unusedViews.map((v) => {
                     const meta = VIEW_METADATA[v];
                     const Icon = meta.icon;
@@ -202,7 +204,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                       : 'text-[#787774] hover:text-[#37352f]'
                   }`}
                 >
-                  {z === 'day' ? 'Ngày' : z === 'week' ? 'Tuần' : 'Tháng'}
+                  {z === 'day' 
+                    ? (language === 'en' ? 'Day' : 'Ngày') 
+                    : z === 'week' 
+                    ? (language === 'en' ? 'Week' : 'Tuần') 
+                    : (language === 'en' ? 'Month' : 'Tháng')}
                 </button>
               ))}
             </div>
@@ -220,7 +226,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               <Search size={13} className={isPink ? 'text-[#9f1239]' : 'text-[#9b9a97]'} />
               <input
                 type="text"
-                placeholder="Lọc theo từ khóa..."
+                placeholder={language === 'en' ? 'Filter by keyword...' : 'Lọc theo từ khóa...'}
                 value={filters.search}
                 onChange={(e) => onUpdateFilters({ search: e.target.value })}
                 className={`bg-transparent outline-none text-xs w-32 sm:w-40 ${
@@ -247,7 +253,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                   ? 'bg-[#242424] border-[#383838] text-[#888] hover:text-white' 
                   : 'bg-white border-[#e3e2e0] text-[#787774] hover:text-[#37352f]'
               }`}
-              title="Tìm kiếm"
+              title={language === 'en' ? 'Search' : 'Tìm kiếm'}
             >
               <Search size={13} />
             </button>
@@ -281,13 +287,15 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                   ? 'bg-[#262626] border-[#383838] text-[#ddd]' 
                   : 'bg-white border-[#e3e2e0] text-[#37352f]'
               }`}>
-                <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Sắp xếp theo</div>
+                <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
+                  {language === 'en' ? 'Sort by' : 'Sắp xếp theo'}
+                </div>
                 {[
-                  { id: 'order', label: 'Thứ tự thủ công' },
-                  { id: 'dueDate', label: 'Hạn chót (Due Date)' },
-                  { id: 'priority', label: 'Mức độ ưu tiên' },
-                  { id: 'title', label: 'Tên công việc (A-Z)' },
-                  { id: 'progress', label: 'Tiến độ hoàn thành' },
+                  { id: 'order', label: language === 'en' ? 'Manual Order' : 'Thứ tự thủ công' },
+                  { id: 'dueDate', label: language === 'en' ? 'Due Date' : 'Hạn chót (Due Date)' },
+                  { id: 'priority', label: language === 'en' ? 'Priority' : 'Mức độ ưu tiên' },
+                  { id: 'title', label: language === 'en' ? 'Task Name (A-Z)' : 'Tên công việc (A-Z)' },
+                  { id: 'progress', label: language === 'en' ? 'Completion Progress' : 'Tiến độ hoàn thành' },
                 ].map((s) => (
                   <button
                     key={s.id}
@@ -331,7 +339,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               }`}
             >
               <Layers size={12} className={isPink ? 'text-[#e11d48]' : ''} />
-              <span>Nhóm</span>
+              <span>{language === 'en' ? 'Group' : 'Nhóm'}</span>
             </button>
 
             {showGroupMenu && (
@@ -342,11 +350,13 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                   ? 'bg-[#262626] border-[#383838] text-[#ddd]' 
                   : 'bg-white border-[#e3e2e0] text-[#37352f]'
               }`}>
-                <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Nhóm thẻ theo</div>
+                <div className={`px-2 py-1 text-[10px] font-semibold uppercase ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
+                  {language === 'en' ? 'Group cards by' : 'Nhóm thẻ theo'}
+                </div>
                 {[
-                  { id: 'status', label: 'Trạng thái (Status)' },
-                  { id: 'priority', label: 'Mức độ ưu tiên' },
-                  { id: 'assignee', label: 'Người phụ trách' },
+                  { id: 'status', label: language === 'en' ? 'Status' : 'Trạng thái (Status)' },
+                  { id: 'priority', label: language === 'en' ? 'Priority' : 'Mức độ ưu tiên' },
+                  { id: 'assignee', label: language === 'en' ? 'Assignee' : 'Người phụ trách' },
                 ].map((g) => (
                   <button
                     key={g.id}
@@ -383,9 +393,9 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
                   ? 'bg-[#ffe4e6] text-[#9f1239] border-[#fda4af] hover:bg-[#fecdd3]' 
                   : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
               }`}
-              title="Xóa tất cả bộ lọc"
+              title={language === 'en' ? 'Clear all filters' : 'Xóa tất cả bộ lọc'}
             >
-              <span>{filteredTasksCount}/{totalTasks} thẻ</span>
+              <span>{filteredTasksCount}/{totalTasks} {language === 'en' ? 'cards' : 'thẻ'}</span>
               <X size={12} />
             </button>
           )}

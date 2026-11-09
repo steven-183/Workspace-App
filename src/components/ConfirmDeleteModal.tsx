@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ConfirmDeleteModalProps {
   isOpen: boolean;
@@ -16,13 +17,20 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
-  title = 'Xóa công việc này?',
-  description = 'Công việc sẽ được chuyển vào Thùng rác (Kho lưu trữ). Bạn có thể khôi phục lại bất cứ lúc nào.',
-  confirmText = 'Chuyển vào Thùng rác',
-  cancelText = 'Hủy bỏ',
+  title,
+  description,
+  confirmText,
+  cancelText,
   darkMode,
 }) => {
+  const { t } = useLanguage();
+
   if (!isOpen) return null;
+
+  const resolvedTitle = title || t('confirmDeleteTitle', 'Xóa công việc này?');
+  const resolvedDesc = description || t('confirmDeleteDesc', 'Công việc sẽ được chuyển vào Thùng rác (Kho lưu trữ). Bạn có thể khôi phục lại bất cứ lúc nào.');
+  const resolvedConfirm = confirmText || t('confirmDeleteButton', 'Chuyển vào Thùng rác');
+  const resolvedCancel = cancelText || t('cancel', 'Hủy bỏ');
 
   return (
     <div
@@ -41,10 +49,10 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
 
         <div className="space-y-1.5">
           <h3 className="text-base font-bold text-[#37352f] dark:text-white">
-            {title}
+            {resolvedTitle}
           </h3>
           <p className="text-xs text-[#787774] dark:text-[#9b9a97] leading-relaxed">
-            {description}
+            {resolvedDesc}
           </p>
         </div>
 
@@ -55,7 +63,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
               darkMode ? 'border-[#3a3a3a] hover:bg-[#333] text-[#ddd]' : 'border-[#e3e2e0] hover:bg-[#f5f5f5] text-[#555]'
             }`}
           >
-            {cancelText}
+            {resolvedCancel}
           </button>
           <button
             onClick={() => {
@@ -64,7 +72,7 @@ export const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({
             }}
             className="flex-1 py-2.5 px-3 text-xs font-semibold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors"
           >
-            {confirmText}
+            {resolvedConfirm}
           </button>
         </div>
       </div>

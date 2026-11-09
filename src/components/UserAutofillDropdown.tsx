@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { User } from '../types';
-import { Search, UserPlus, Check, X, Mail, ShieldCheck } from 'lucide-react';
+import { Search, UserPlus, Check, X, Mail } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface UserAutofillDropdownProps {
   availableUsers: User[];
@@ -19,15 +20,19 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
   selectedUsers,
   onToggleUser,
   onClose,
-  title = 'Chọn thành viên',
-  placeholder = 'Tìm tên hoặc email...',
+  title,
+  placeholder,
   isSingleSelect = false,
   currentUser,
   darkMode,
 }) => {
+  const { t, language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const resolvedTitle = title || t('selectMember', 'Chọn thành viên');
+  const resolvedPlaceholder = placeholder || t('searchUserPlaceholder', 'Tìm tên hoặc email...');
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -41,75 +46,57 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  // Filter users based on search
   const filteredUsers = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return availableUsers;
-
-    return availableUsers.filter((u) => {
-      const matchName = u.name.toLowerCase().includes(query);
-      const matchEmail = (u.email || '').toLowerCase().includes(query);
-      return matchName || matchEmail;
-    });
+    if (!searchQuery.trim()) return availableUsers;
+    const q = searchQuery.toLowerCase().trim();
+    return availableUsers.filter((u) => 
+      u.name.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q))
+    );
   }, [availableUsers, searchQuery]);
 
-  const handleAddNewUser = () => {
-    const name = searchQuery.trim();
-    if (!name) return;
-
-    // Check if looks like email
-    const isEmail = name.includes('@');
-    const newUser: User = {
-      id: `u-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      name: isEmail ? name.split('@')[0] : name,
-      email: isEmail ? name : `${name.toLowerCase().replace(/\s+/g, '')}@company.com`,
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=2383e2`,
-      color: '#2383e2',
-    };
-
-    onToggleUser(newUser);
-    setSearchQuery('');
-    if (isSingleSelect) {
-      onClose();
-    }
+  const isUserSelected = (user: User) => {
+    return selectedUsers.some((u) => u.id === user.id || u.email === user.email);
   };
 
-  const isUserSelected = (user: User) => {
-    return selectedUsers.some(
-      (u) => u.id === user.id || (user.email && u.email?.toLowerCase() === user.email.toLowerCase())
-    );
+  const handleAddNewUser = () => {
+    if (!searchQuery.trim()) return;
+    const name = searchQuery.trim();
+    const newUser: User = {
+      id: `user_${Date.now()}`,
+      name,
+      email: name.includes('@') ? name : undefined,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=2383e2`,
+      role: 'member',
+    };
+    onToggleUser(newUser);
+    if (isSingleSelect) onClose();
+    else setSearchQuery('');
   };
 
   return (
     <div
       ref={dropdownRef}
-      className={`absolute top-full left-0 mt-1 w-72 sm:w-80 rounded-2xl shadow-2xl border p-2.5 z-40 space-y-2 animate-in fade-in zoom-in-95 duration-150 ${
-        darkMode ? 'bg-[#222222] border-[#383838] text-[#dedede]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+      className={`p-3 rounded-2xl shadow-2xl border w-72 space-y-2.5 animate-in fade-in zoom-in-95 duration-150 text-xs ${
+        darkMode ? 'bg-[#1e1e1e] border-[#383838] text-white' : 'bg-white border-[#e3e2e0] text-[#37352f]'
       }`}
     >
-      <div className="flex items-center justify-between px-1 pb-1 border-b border-black/5 dark:border-white/5">
-        <span className="text-xs font-bold text-[#37352f] dark:text-white flex items-center gap-1.5">
-          <ShieldCheck size={13} className="text-blue-500" />
-          <span>{title}</span>
-        </span>
+      <div className="flex items-center justify-between pb-1 border-b border-black/5 dark:border-white/5">
+        <span className="font-bold text-xs">{resolvedTitle}</span>
         <button
+          type="button"
           onClick={onClose}
-          className={`p-1 rounded-md transition-colors ${
-            darkMode ? 'hover:bg-[#333] text-[#aaa]' : 'hover:bg-[#f0ede8] text-[#888]'
-          }`}
+          className="p-1 rounded-md text-[#9b9a97] hover:text-black dark:hover:text-white"
         >
-          <X size={13} />
+          <X size={14} />
         </button>
       </div>
 
-      {/* Search Input with Autofill hint */}
-      <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs ${
-        darkMode ? 'bg-[#1a1a1a] border-[#333]' : 'bg-[#f7f6f3] border-[#e0deda]'
+      {/* Search Input */}
+      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${
+        darkMode ? 'bg-[#242424] border-[#383838]' : 'bg-[#f7f6f3] border-[#e3e2e0]'
       }`}>
         <Search size={13} className="text-[#9b9a97] shrink-0" />
         <input
@@ -117,11 +104,8 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={placeholder}
-          className="bg-transparent outline-none text-xs w-full placeholder-[#9b9a97] text-[#37352f] dark:text-white"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
               e.preventDefault();
               if (filteredUsers.length > 0) {
                 onToggleUser(filteredUsers[0]);
@@ -129,18 +113,18 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
               } else if (searchQuery.trim()) {
                 handleAddNewUser();
               }
-            } else if (e.key === 'Escape') {
-              onClose();
             }
           }}
+          placeholder={resolvedPlaceholder}
+          className="bg-transparent outline-none text-xs w-full text-[#37352f] dark:text-white placeholder-[#9b9a97]"
         />
       </div>
 
-      {/* Quick Select Current User if available */}
+      {/* Current User Quick Option */}
       {currentUser && !searchQuery.trim() && (
         <div className="pt-0.5">
           <div className="text-[10px] font-semibold text-[#9b9a97] px-1.5 py-0.5 uppercase tracking-wider">
-            Tài khoản của bạn
+            {t('yourAccount', 'Tài khoản của bạn')}
           </div>
           <button
             type="button"
@@ -162,7 +146,9 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
                 className="w-6 h-6 rounded-full object-cover shrink-0 border border-black/10 dark:border-white/10"
               />
               <div className="truncate">
-                <div className="font-semibold truncate">{currentUser.name} (Bạn)</div>
+                <div className="font-semibold truncate">
+                  {currentUser.name} ({t('you', 'Bạn')})
+                </div>
                 {currentUser.email && (
                   <div className="text-[10.5px] text-[#9b9a97] truncate">{currentUser.email}</div>
                 )}
@@ -176,13 +162,15 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
       {/* Suggested Users List */}
       <div className="max-h-48 overflow-y-auto space-y-1 no-scrollbar pt-1">
         <div className="text-[10px] font-semibold text-[#9b9a97] px-1.5 py-0.5 uppercase tracking-wider flex items-center justify-between">
-          <span>Danh sách người dùng ({filteredUsers.length})</span>
-          {searchQuery && <span className="text-blue-500">Gợi ý tự động</span>}
+          <span>{t('userList', 'Danh sách người dùng')} ({filteredUsers.length})</span>
+          {searchQuery && <span className="text-blue-500">{t('autoSuggestions', 'Gợi ý tự động')}</span>}
         </div>
 
         {filteredUsers.length === 0 ? (
           <div className="p-3 text-center space-y-2">
-            <p className="text-xs text-[#9b9a97]">Không tìm thấy người dùng khớp với từ khóa.</p>
+            <p className="text-xs text-[#9b9a97]">
+              {t('noUserFound', 'Không tìm thấy người dùng khớp với từ khóa.')}
+            </p>
             {searchQuery.trim() && (
               <button
                 type="button"
@@ -190,7 +178,7 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
                 className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
               >
                 <UserPlus size={13} />
-                <span>Thêm "{searchQuery.trim()}"</span>
+                <span>{language === 'en' ? `Add "${searchQuery.trim()}"` : `Thêm "${searchQuery.trim()}"`}</span>
               </button>
             )}
           </div>
@@ -232,7 +220,9 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
                 {selected ? (
                   <Check size={14} className="text-blue-500 shrink-0 ml-1.5" />
                 ) : (
-                  <span className="text-[10px] text-[#9b9a97] opacity-0 hover:opacity-100 shrink-0">Chọn</span>
+                  <span className="text-[10px] text-[#9b9a97] opacity-0 hover:opacity-100 shrink-0">
+                    {t('select', 'Chọn')}
+                  </span>
                 )}
               </button>
             );
@@ -251,7 +241,9 @@ export const UserAutofillDropdown: React.FC<UserAutofillDropdownProps> = ({
             }`}
           >
             <UserPlus size={13} />
-            <span>Thêm mới: "{searchQuery.trim()}"</span>
+            <span>
+              {language === 'en' ? `Add new: "${searchQuery.trim()}"` : `Thêm mới: "${searchQuery.trim()}"`}
+            </span>
           </button>
         </div>
       )}

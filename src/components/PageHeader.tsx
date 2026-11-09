@@ -26,7 +26,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   darkMode,
   appTheme = 'light',
 }) => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const isPink = appTheme === 'qanda_pink';
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(project.title);
@@ -54,9 +54,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         {/* Breadcrumb & Top bar */}
         <div className="flex items-center justify-between mb-4">
           <div className={`flex items-center gap-1.5 text-xs ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
-            <span>Không gian làm việc</span>
+            <span>{language === 'en' ? 'Workspace' : 'Không gian làm việc'}</span>
             <ChevronRight size={12} className={isPink ? 'text-[#fda4af]' : ''} />
-            <span>{project.category || 'Dự án'}</span>
+            <span>{project.category || (language === 'en' ? 'Project' : 'Dự án')}</span>
             <ChevronRight size={12} className={isPink ? 'text-[#fda4af]' : ''} />
             <span className={`font-semibold truncate max-w-[200px] ${
               isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#bbb]' : 'text-[#5a5a58]'
@@ -78,7 +78,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     ? 'bg-white/[0.04] border-white/[0.08] text-[#a1a1aa] hover:text-white hover:bg-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]' 
                     : 'bg-white/90 border-[#e3e2e0] text-[#787774] hover:text-[#37352f] shadow-xs'
               }`}
-              title={project.isFavorite ? 'Đã yêu thích' : 'Thêm vào mục yêu thích'}
+              title={project.isFavorite ? (language === 'en' ? 'Favorited' : 'Đã yêu thích') : (language === 'en' ? 'Add to favorites' : 'Thêm vào mục yêu thích')}
             >
               <Star size={14} className={project.isFavorite ? (isPink ? 'fill-[#e11d48] text-[#e11d48]' : 'fill-amber-500 text-amber-500') : ''} />
             </button>
@@ -108,7 +108,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 ? 'bg-white/[0.05] backdrop-blur-md border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)] shadow-black/40' 
                 : 'bg-white/90 backdrop-blur-md border border-[#e3e2e0] shadow-xs'
             }`}
-            title="Đổi biểu tượng"
+            title={language === 'en' ? 'Change icon' : 'Đổi biểu tượng'}
           >
             {project.icon || '📄'}
           </button>
@@ -149,7 +149,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     : 'text-[#37352f] hover:bg-black/5'
                 }`}
               >
-                {project.title || 'Không có tiêu đề'}
+                {project.title || (language === 'en' ? 'Untitled' : 'Không có tiêu đề')}
               </h1>
             )}
 
@@ -189,7 +189,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                       : (isPink ? 'text-[#9f1239]/70 italic hover:bg-[#ffe4e6]/40' : darkMode ? 'text-[#666] italic hover:bg-white/5' : 'text-[#9b9a97] italic hover:bg-black/5')
                   }`}
                 >
-                  {project.description || 'Thêm mô tả hoặc mục tiêu cho bảng công việc này...'}
+                  {project.description || (language === 'en' ? 'Add description or objectives for this board...' : 'Thêm mô tả hoặc mục tiêu cho bảng công việc này...')}
                 </p>
               )}
             </div>

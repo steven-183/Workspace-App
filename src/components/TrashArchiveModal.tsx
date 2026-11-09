@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ProjectPage, Task } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
-import { formatDateVi, formatFullTimestamp, formatRelativeTime } from '../utils/dateUtils';
+import { formatDateVi, formatRelativeTime } from '../utils/dateUtils';
 import { 
   X, 
   Archive, 
@@ -9,12 +9,10 @@ import {
   RotateCcw, 
   Search, 
   AlertTriangle, 
-  CheckCircle2, 
-  Clock, 
   Calendar,
-  Layers,
-  FileText
+  Layers
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TrashArchiveModalProps {
   isOpen: boolean;
@@ -43,80 +41,69 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
   initialTab = 'archive',
   darkMode,
 }) => {
+  const { language, t, translateStatus, translatePriority } = useLanguage();
   const [activeTab, setActiveTab] = useState<'archive' | 'trash'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>('all');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
 
-  React.useEffect(() => {
-    if (isOpen && initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [isOpen, initialTab]);
-
   if (!isOpen) return null;
 
-  const currentProj = projects.find((p) => p.id === activeProjectId);
+  // Aggregate archived tasks across all projects
+  const allArchivedTasks: Array<{ task: Task; project: ProjectPage }> = [];
+  const allDeletedTasks: Array<{ task: Task; project: ProjectPage }> = [];
 
-  // Collect archived & deleted tasks across selected projects
-  const relevantProjects = selectedProjectFilter === 'all' 
-    ? projects 
-    : projects.filter((p) => p.id === selectedProjectFilter);
-
-  const allArchivedTasks: { task: Task; project: ProjectPage }[] = [];
-  const allDeletedTasks: { task: Task; project: ProjectPage }[] = [];
-
-  relevantProjects.forEach((proj) => {
-    (proj.tasks || []).forEach((t) => {
-      if (t.isDeleted) {
-        allDeletedTasks.push({ task: t, project: proj });
-      } else if (t.isArchived) {
-        allArchivedTasks.push({ task: t, project: proj });
+  projects.forEach((proj) => {
+    (proj.tasks || []).forEach((task) => {
+      if (task.isDeleted) {
+        allDeletedTasks.push({ task, project: proj });
+      } else if (task.isArchived) {
+        allArchivedTasks.push({ task, project: proj });
       }
     });
   });
 
-  const displayList = activeTab === 'archive' ? allArchivedTasks : allDeletedTasks;
-  const filteredList = displayList.filter(({ task, project }) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      task.title.toLowerCase().includes(term) ||
-      (task.description && task.description.toLowerCase().includes(term)) ||
-      project.title.toLowerCase().includes(term)
-    );
+  const currentList = activeTab === 'archive' ? allArchivedTasks : allDeletedTasks;
+
+  // Filter by project and search query
+  const filteredList = currentList.filter(({ task, project }) => {
+    const matchesProject = selectedProjectFilter === 'all' || project.id === selectedProjectFilter;
+    const matchesQuery = 
+      task.title.toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
+      (task.description && task.description.toLowerCase().includes(searchTerm.toLowerCase().trim()));
+    return matchesProject && matchesQuery;
   });
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-3xl max-h-[85vh] rounded-2xl shadow-2xl border flex flex-col overflow-hidden transition-all ${
-          darkMode ? 'bg-[#1f1f1f] border-[#333] text-[#e0e0e0]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
+        className={`w-full max-w-4xl h-[85vh] max-h-[750px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 ${
+          darkMode ? 'bg-[#181818] border-[#313131] text-[#e0e0e0]' : 'bg-white border-[#e3e2e0] text-[#37352f]'
         }`}
       >
         {/* Header */}
-        <div className={`p-4 sm:p-5 border-b flex items-center justify-between shrink-0 ${
-          darkMode ? 'border-[#2f2f2f] bg-[#181818]' : 'border-[#ededeb] bg-[#fbfbfa]'
+        <div className={`p-4 sm:px-6 border-b flex items-center justify-between shrink-0 ${
+          darkMode ? 'border-[#2a2a2a] bg-[#1c1c1c]' : 'border-[#ebeae7] bg-[#fbfbfa]'
         }`}>
           <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-              activeTab === 'archive' 
-                ? 'bg-amber-500/10 text-amber-500' 
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              activeTab === 'archive'
+                ? 'bg-amber-500/10 text-amber-500'
                 : 'bg-red-500/10 text-red-500'
             }`}>
-              {activeTab === 'archive' ? <Archive size={18} /> : <Trash2 size={18} />}
+              {activeTab === 'archive' ? <Archive size={22} /> : <Trash2 size={22} />}
             </div>
             <div>
               <h2 className="text-base font-bold text-[#37352f] dark:text-white">
-                Kho lưu trữ & Thùng rác
+                {t('archiveAndTrashTitle', 'Kho lưu trữ & Thùng rác')}
               </h2>
               <p className="text-xs text-[#9b9a97]">
-                Quản lý các công việc đã hoàn thành được lưu trữ và khôi phục công việc đã xóa
+                {t('archiveDescription', 'Quản lý các công việc đã hoàn thành được lưu trữ và khôi phục công việc đã xóa')}
               </p>
             </div>
           </div>
@@ -146,7 +133,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
               }`}
             >
               <Archive size={14} className="text-amber-500" />
-              <span>Đã lưu trữ ({allArchivedTasks.length})</span>
+              <span>{t('archivedTab', 'Đã lưu trữ')} ({allArchivedTasks.length})</span>
             </button>
 
             <button
@@ -158,7 +145,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
               }`}
             >
               <Trash2 size={14} className="text-red-500" />
-              <span>Thùng rác ({allDeletedTasks.length})</span>
+              <span>{t('trashTab', 'Thùng rác')} ({allDeletedTasks.length})</span>
             </button>
           </div>
 
@@ -170,7 +157,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
               <Search size={13} className="text-[#9b9a97]" />
               <input
                 type="text"
-                placeholder="Tìm công việc..."
+                placeholder={t('searchInArchive', 'Tìm công việc...')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-transparent outline-none text-xs w-32 sm:w-44 text-[#37352f] dark:text-white"
@@ -184,7 +171,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
                 darkMode ? 'bg-[#242424] border-[#383838] text-white' : 'bg-white border-[#e3e2e0] text-[#37352f]'
               }`}
             >
-              <option value="all">Tất cả bảng dự án</option>
+              <option value="all">{t('allProjectsOption', 'Tất cả bảng dự án')}</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
               ))}
@@ -199,13 +186,13 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
           }`}>
             <div className="flex items-center gap-1.5">
               <AlertTriangle size={13} />
-              <span>Các công việc trong thùng rác có thể được khôi phục hoặc xóa vĩnh viễn.</span>
+              <span>{t('trashNotice', 'Các công việc trong thùng rác có thể được khôi phục hoặc xóa vĩnh viễn.')}</span>
             </div>
             <button
               onClick={() => setShowEmptyTrashConfirm(true)}
               className="font-semibold underline hover:text-red-600 transition-colors"
             >
-              Dọn sạch thùng rác
+              {t('emptyTrash', 'Dọn sạch thùng rác')}
             </button>
           </div>
         )}
@@ -219,13 +206,13 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
               </div>
               <p className="text-sm font-semibold text-[#5a5a58] dark:text-[#aaa]">
                 {activeTab === 'archive' 
-                  ? 'Chưa có công việc nào được lưu trữ' 
-                  : 'Thùng rác hiện đang trống'}
+                  ? t('noArchivedTasks', 'Chưa có công việc nào được lưu trữ') 
+                  : t('trashEmpty', 'Thùng rác hiện đang trống')}
               </p>
               <p className="text-xs text-[#9b9a97] mt-1 max-w-sm">
                 {activeTab === 'archive'
-                  ? 'Bạn có thể lưu trữ các công việc đã hoàn thành để giữ bảng làm việc luôn gọn gàng.'
-                  : 'Các công việc bị xóa sẽ được giữ tại đây để bạn có thể khôi phục lại bất cứ lúc nào.'}
+                  ? (language === 'en' ? 'You can archive completed tasks to keep your board clean.' : 'Bạn có thể lưu trữ các công việc đã hoàn thành để giữ bảng làm việc luôn gọn gàng.')
+                  : (language === 'en' ? 'Deleted tasks are kept here so you can restore them anytime.' : 'Các công việc bị xóa sẽ được giữ tại đây để bạn có thể khôi phục lại bất cứ lúc nào.')}
               </p>
             </div>
           ) : (
@@ -238,88 +225,72 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
                 <div
                   key={`${project.id}-${task.id}`}
                   className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                    darkMode ? 'bg-[#242424] border-[#313131] hover:border-[#444]' : 'bg-[#fafafa] border-[#e8e7e4] hover:border-[#ccc]'
+                    darkMode 
+                      ? 'bg-[#222] border-[#313131] hover:border-[#444]' 
+                      : 'bg-white border-[#e3e2e0] hover:border-[#c5c4c1] shadow-2xs'
                   }`}
                 >
-                  <div className="flex-1 space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-[#9b9a97] font-medium flex items-center gap-1">
-                        <span>{project.icon}</span>
-                        <span className="truncate max-w-[120px]">{project.title}</span>
-                      </span>
-
+                  <div 
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onClick={() => onOpenTaskDetail && onOpenTaskDetail(task, project)}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm">{project.icon || '📄'}</span>
+                      <span className="text-xs font-semibold text-[#9b9a97] truncate">{project.title}</span>
+                      <span className="text-xs text-[#9b9a97]">•</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${colStyle.badgeBg}`}>
-                        {column?.title || task.status}
+                        {translateStatus(column?.title || task.status)}
                       </span>
-
                       {task.priority !== 'none' && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${priority.badgeBg} ${priority.badgeText}`}>
-                          {priority.label}
-                        </span>
-                      )}
-
-                      {task.isDeleted && task.deletedAt && (
-                        <span className="text-[10px] text-red-500 font-mono">
-                          Xóa lúc {formatRelativeTime(task.deletedAt)}
+                          {translatePriority(task.priority)}
                         </span>
                       )}
                     </div>
 
-                    <h4 
-                      onClick={() => onOpenTaskDetail && onOpenTaskDetail(task, project)}
-                      className="text-xs font-semibold text-[#37352f] dark:text-white truncate cursor-pointer hover:underline"
-                    >
+                    <h4 className="text-xs font-bold text-[#37352f] dark:text-white truncate">
                       {task.title}
                     </h4>
 
-                    {task.description && (
-                      <p className="text-[11px] text-[#787774] dark:text-[#999] line-clamp-1">
-                        {task.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-3 text-[11px] text-[#9b9a97]">
-                      {(task.startDate || task.dueDate) && (
+                    <div className="flex items-center gap-3 text-[11px] text-[#9b9a97] mt-1.5 flex-wrap">
+                      {task.dueDate && (
                         <span className="flex items-center gap-1">
                           <Calendar size={11} />
-                          <span>{formatDateVi(task.dueDate || task.startDate)}</span>
+                          <span>{formatDateVi(task.dueDate)}</span>
                         </span>
                       )}
-                      {task.dueTime && (
-                        <span className="flex items-center gap-1">
-                          <Clock size={11} />
-                          <span>{task.dueTime}</span>
-                        </span>
-                      )}
+                      <span>
+                        {language === 'en' ? 'Deleted/Archived' : 'Cập nhật'}: {formatRelativeTime(task.updatedAt || task.createdAt)}
+                      </span>
                     </div>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <div className="flex items-center gap-2 shrink-0">
                     {activeTab === 'archive' ? (
                       <button
                         onClick={() => onUnarchiveTask(project.id, task.id)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
-                        title="Đưa thẻ quay lại bảng làm việc"
+                        title={language === 'en' ? 'Restore card back to board' : 'Đưa thẻ quay lại bảng làm việc'}
                       >
                         <RotateCcw size={13} />
-                        <span>Bỏ lưu trữ</span>
+                        <span>{t('restore', 'Khôi phục')}</span>
                       </button>
                     ) : (
                       <>
                         <button
                           onClick={() => onRestoreTask(project.id, task.id)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-500/10 text-[#2383e2] hover:bg-blue-500/20 transition-colors"
-                          title="Khôi phục thẻ về lại bảng"
+                          title={language === 'en' ? 'Restore card to board' : 'Khôi phục thẻ về lại bảng'}
                         >
                           <RotateCcw size={13} />
-                          <span>Khôi phục</span>
+                          <span>{t('restore', 'Khôi phục')}</span>
                         </button>
 
                         <button
                           onClick={() => setConfirmDeleteId(task.id)}
                           className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
-                          title="Xóa vĩnh viễn"
+                          title={t('deletePermanently', 'Xóa vĩnh viễn')}
                         >
                           <Trash2 size={15} />
                         </button>
@@ -338,8 +309,8 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
         }`}>
           <span>
             {activeTab === 'archive'
-              ? 'Thẻ được lưu trữ sẽ ẩn khỏi các chế độ xem chính nhưng dữ liệu và tiến độ vẫn được bảo toàn nguyên vẹn.'
-              : 'Thùng rác giúp tránh việc mất mát dữ liệu do lỡ tay xóa nhầm.'}
+              ? (language === 'en' ? 'Archived cards are hidden from main views while progress and data are fully preserved.' : 'Thẻ được lưu trữ sẽ ẩn khỏi các chế độ xem chính nhưng dữ liệu và tiến độ vẫn được bảo toàn nguyên vẹn.')
+              : (language === 'en' ? 'Trash protects against accidental data deletion.' : 'Thùng rác giúp tránh việc mất mát dữ liệu do lỡ tay xóa nhầm.')}
           </span>
         </div>
       </div>
@@ -360,9 +331,11 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
               <AlertTriangle size={22} />
             </div>
             <div className="text-center space-y-1">
-              <h3 className="text-sm font-bold">Xóa vĩnh viễn công việc này?</h3>
+              <h3 className="text-sm font-bold">
+                {language === 'en' ? 'Permanently delete this task?' : 'Xóa vĩnh viễn công việc này?'}
+              </h3>
               <p className="text-xs text-[#9b9a97]">
-                Hành động này không thể hoàn tác. Công việc và toàn bộ bình luận, tệp đính kèm sẽ bị xóa hoàn toàn khỏi hệ thống.
+                {language === 'en' ? 'This action cannot be undone. Task comments and attachments will be deleted forever.' : 'Hành động này không thể hoàn tác. Công việc và toàn bộ bình luận, tệp đính kèm sẽ bị xóa hoàn toàn khỏi hệ thống.'}
               </p>
             </div>
             <div className="flex items-center gap-2 pt-1">
@@ -372,7 +345,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
                   darkMode ? 'border-[#3a3a3a] hover:bg-[#333]' : 'border-[#e3e2e0] hover:bg-[#f5f5f5]'
                 }`}
               >
-                Hủy bỏ
+                {t('cancel', 'Hủy bỏ')}
               </button>
               <button
                 onClick={() => {
@@ -384,7 +357,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
                 }}
                 className="flex-1 py-2 text-xs font-semibold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-xs"
               >
-                Xóa vĩnh viễn
+                {t('deletePermanently', 'Xóa vĩnh viễn')}
               </button>
             </div>
           </div>
@@ -407,9 +380,13 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
               <Trash2 size={22} />
             </div>
             <div className="text-center space-y-1">
-              <h3 className="text-sm font-bold">Dọn sạch toàn bộ thùng rác?</h3>
+              <h3 className="text-sm font-bold">
+                {language === 'en' ? 'Empty entire trash?' : 'Dọn sạch toàn bộ thùng rác?'}
+              </h3>
               <p className="text-xs text-[#9b9a97]">
-                Tất cả {allDeletedTasks.length} công việc trong thùng rác sẽ bị xóa vĩnh viễn và không thể khôi phục lại.
+                {language === 'en' 
+                  ? `All ${allDeletedTasks.length} tasks in trash will be permanently deleted and cannot be recovered.` 
+                  : `Tất cả ${allDeletedTasks.length} công việc trong thùng rác sẽ bị xóa vĩnh viễn và không thể khôi phục lại.`}
               </p>
             </div>
             <div className="flex items-center gap-2 pt-1">
@@ -419,7 +396,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
                   darkMode ? 'border-[#3a3a3a] hover:bg-[#333]' : 'border-[#e3e2e0] hover:bg-[#f5f5f5]'
                 }`}
               >
-                Hủy bỏ
+                {t('cancel', 'Hủy bỏ')}
               </button>
               <button
                 onClick={() => {
@@ -428,7 +405,7 @@ export const TrashArchiveModal: React.FC<TrashArchiveModalProps> = ({
                 }}
                 className="flex-1 py-2 text-xs font-semibold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-xs"
               >
-                Dọn sạch
+                {t('emptyTrash', 'Dọn sạch')}
               </button>
             </div>
           </div>

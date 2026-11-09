@@ -25,6 +25,7 @@ import {
   Volume2,
   Globe
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface NotificationCenterProps {
   notifications: TaskNotification[];
@@ -49,6 +50,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   align = 'right',
   darkMode,
 }) => {
+  const { language, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'unread'>('all');
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
@@ -212,11 +214,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               ? (darkMode ? 'bg-[#27272a] text-white shadow-xs' : 'bg-[#e5e5e5] text-[#18181b]')
               : (darkMode ? 'hover:bg-white/[0.06] text-[#a1a1aa]' : 'hover:bg-[#ebeae7] text-[#5a5a58]')
           }`}
-          title="Mở trung tâm thông báo"
+          title={t('notificationCenter', 'Mở trung tâm thông báo')}
         >
           <div className="flex items-center gap-2 font-medium">
             <Bell size={15} className={unreadCount > 0 ? 'text-[#2563eb] dark:text-blue-400' : ''} />
-            <span>Thông báo</span>
+            <span>{t('notifications', 'Thông báo')}</span>
           </div>
           {unreadCount > 0 && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-[#2563eb] text-white shadow-xs">
@@ -233,7 +235,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               ? (darkMode ? 'bg-[#27272a] text-white shadow-xs' : 'bg-white shadow-xs text-[#2563eb] border border-[#e3e2e0]')
               : (darkMode ? 'hover:bg-white/[0.08] text-[#a1a1aa]' : 'hover:bg-[#ebeae7] text-[#787774]')
           }`}
-          title="Trung tâm thông báo"
+          title={t('notificationCenter', 'Trung tâm thông báo')}
         >
           <Bell size={17} />
           {unreadCount > 0 && (
@@ -272,15 +274,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </div>
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-2">
-                  <span>Trung tâm thông báo</span>
+                  <span>{t('notificationCenter', 'Trung tâm thông báo')}</span>
                   {unreadCount > 0 && (
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-[#2563eb] dark:text-blue-300">
-                      {unreadCount} mới
+                      {unreadCount} {language === 'en' ? 'new' : 'mới'}
                     </span>
                   )}
                 </h3>
                 <p className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">
-                  Tất cả cập nhật và sự kiện của các tác vụ
+                  {language === 'en' ? 'All updates and events for tasks' : 'Tất cả cập nhật và sự kiện của các tác vụ'}
                 </p>
               </div>
             </div>
@@ -290,10 +292,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 <button
                   onClick={onMarkAllAsRead}
                   className="px-2.5 py-1 text-xs text-[#2563eb] dark:text-blue-400 hover:bg-blue-500/10 rounded-lg font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Đánh dấu tất cả đã đọc"
+                  title={t('markAllRead', 'Đánh dấu tất cả đã đọc')}
                 >
                   <CheckCheck size={14} />
-                  <span>Đọc tất cả</span>
+                  <span>{language === 'en' ? 'Read all' : 'Đọc tất cả'}</span>
                 </button>
               )}
               <button
@@ -301,7 +303,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 className={`p-1.5 rounded-lg text-[#71717a] hover:text-[#18181b] dark:hover:text-white transition-colors cursor-pointer ${
                   darkMode ? 'hover:bg-white/[0.08]' : 'hover:bg-[#ebeae7]'
                 }`}
-                title="Đóng (Esc)"
+                title={t('close', 'Đóng (Esc)')}
               >
                 <X size={16} />
               </button>
@@ -319,8 +321,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 <Globe size={14} className="shrink-0" />
                 <span className="truncate">
                   {browserPermission === 'granted'
-                    ? 'Thông báo Desktop đã bật (nhận thông báo ngoài tab)'
-                    : 'Bật thông báo ngoài trình duyệt để không bỏ lỡ task'}
+                    ? (language === 'en' ? 'Desktop notifications enabled' : 'Thông báo Desktop đã bật (nhận thông báo ngoài tab)')
+                    : (language === 'en' ? 'Enable desktop notifications to stay updated' : 'Bật thông báo ngoài trình duyệt để không bỏ lỡ task')}
                 </span>
               </div>
               <div className="shrink-0">
@@ -328,16 +330,16 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   <button
                     onClick={handleTestNotification}
                     className="text-[11px] font-semibold underline hover:opacity-80 cursor-pointer"
-                    title="Bấm để test thử thông báo nhảy ngoài màn hình"
+                    title={language === 'en' ? 'Click to send a test notification' : 'Bấm để test thử thông báo'}
                   >
-                    Thử gửi
+                    {language === 'en' ? 'Test' : 'Thử gửi'}
                   </button>
                 ) : (
                   <button
                     onClick={handleRequestPermission}
                     className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#2563eb] text-white hover:bg-blue-700 shadow-xs cursor-pointer"
                   >
-                    Bật ngay
+                    {language === 'en' ? 'Enable' : 'Bật ngay'}
                   </button>
                 )}
               </div>
@@ -356,7 +358,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   : 'text-[#71717a] hover:text-[#18181b] dark:hover:text-white'
               }`}
             >
-              Tất cả ({userNotifications.length})
+              {language === 'en' ? `All (${userNotifications.length})` : `Tất cả (${userNotifications.length})`}
             </button>
             <button
               onClick={() => setFilterMode('unread')}
@@ -366,7 +368,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   : 'text-[#71717a] hover:text-[#18181b] dark:hover:text-white'
               }`}
             >
-              Chưa đọc ({unreadCount})
+              {language === 'en' ? `Unread (${unreadCount})` : `Chưa đọc (${unreadCount})`}
             </button>
           </div>
 
@@ -378,10 +380,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   <Inbox size={26} />
                 </div>
                 <div className="text-sm font-bold text-[#18181b] dark:text-[#f4f4f5]">
-                  {filterMode === 'unread' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}
+                  {filterMode === 'unread' 
+                    ? (language === 'en' ? 'No unread notifications' : 'Không có thông báo chưa đọc') 
+                    : (language === 'en' ? 'No notifications yet' : 'Chưa có thông báo nào')}
                 </div>
                 <p className="text-xs text-[#71717a] dark:text-[#a1a1aa] mt-1.5 max-w-[280px] mx-auto leading-relaxed">
-                  Khi công việc được giao, bình luận mới, hoặc cập nhật trạng thái, thông báo sẽ hiển thị đầy đủ tại đây.
+                  {language === 'en' 
+                    ? 'When tasks are assigned, commented on, or updated, notifications will show here.' 
+                    : 'Khi công việc được giao, bình luận mới, hoặc cập nhật trạng thái, thông báo sẽ hiển thị đầy đủ tại đây.'}
                 </p>
               </div>
             ) : (
@@ -473,7 +479,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         onClearNotification(notif.id);
                       }}
                       className="p-1 rounded-md text-[#71717a] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                      title="Xóa thông báo này"
+                      title={language === 'en' ? 'Delete this notification' : 'Xóa thông báo này'}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -489,26 +495,26 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           }`}>
             {currentUser ? (
               <div className="flex items-center justify-between text-[11px]">
-                <span>Tài khoản hiện tại:</span>
+                <span>{language === 'en' ? 'Current account:' : 'Tài khoản hiện tại:'}</span>
                 <span className="font-semibold text-[#18181b] dark:text-[#e4e4e7] truncate max-w-[220px]">
                   {currentUser.name} {currentUser.email ? `(${currentUser.email})` : ''}
                 </span>
               </div>
             ) : (
               <div className="text-[11px] text-amber-500">
-                Chưa đăng nhập tài khoản cá nhân.
+                {language === 'en' ? 'Not signed in with personal account.' : 'Chưa đăng nhập tài khoản cá nhân.'}
               </div>
             )}
             <div className="flex items-center gap-1.5 text-[10px] pt-0.5 border-t border-black/[0.04] dark:border-white/[0.04]">
               {getSupabaseConfig().isConfigured ? (
                 <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                  Đang đồng bộ Realtime đa thiết bị qua Supabase Cloud.
+                  {language === 'en' ? 'Syncing realtime across devices via Supabase Cloud.' : 'Đang đồng bộ Realtime đa thiết bị qua Supabase Cloud.'}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                   <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                  Đang lưu cục bộ (Local Storage). Cần kết nối chung database để gửi sang máy đồng nghiệp.
+                  {language === 'en' ? 'Saved locally (Local Storage).' : 'Đang lưu cục bộ (Local Storage). Cần kết nối chung database để gửi sang máy đồng nghiệp.'}
                 </span>
               )}
             </div>

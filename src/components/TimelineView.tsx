@@ -23,6 +23,7 @@ import {
   Minimize2,
   CheckCircle2
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TimelineViewProps {
   project: ProjectPage;
@@ -48,6 +49,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   appTheme = 'light',
 }) => {
   const isPink = appTheme === 'qanda_pink';
+  const { t, translateStatus, translatePriority } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
 
@@ -203,7 +205,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                 ? 'border-[#383838] hover:bg-[#2c2c2c] text-[#aaa]' 
                 : 'border-[#e3e2e0] hover:bg-[#ebeae7] text-[#787774]'
             }`}
-            title="Lùi thời gian"
+            title={t('prevTime', 'Lùi thời gian')}
           >
             <ChevronLeft size={16} />
           </button>
@@ -219,7 +221,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             }`}
           >
             <CalendarIcon size={13} className={isPink ? 'text-[#e11d48]' : 'text-[#2383e2]'} />
-            <span>Hôm nay</span>
+            <span>{t('today', 'Hôm nay')}</span>
           </button>
 
           <button
@@ -231,24 +233,24 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                 ? 'border-[#383838] hover:bg-[#2c2c2c] text-[#aaa]' 
                 : 'border-[#e3e2e0] hover:bg-[#ebeae7] text-[#787774]'
             }`}
-            title="Tiến thời gian"
+            title={t('nextTime', 'Tiến thời gian')}
           >
             <ChevronRight size={16} />
           </button>
 
           <span className={`text-xs ml-2 hidden md:inline ${isPink ? 'text-[#881337]/70' : 'text-[#9b9a97]'}`}>
-            💡 Kéo thanh để dời ngày, kéo 2 đầu thanh để thay đổi thời hạn
+            {t('timelineTip', '💡 Kéo thanh để dời ngày, kéo 2 đầu thanh để thay đổi thời hạn')}
           </span>
         </div>
 
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-2 text-xs ${isPink ? 'text-[#881337]' : 'text-[#787774]'}`}>
             <span className={`w-2.5 h-2.5 rounded-sm ${isPink ? 'bg-[#e11d48]' : 'bg-[#2383e2]'}`} />
-            <span>Đang thực hiện</span>
+            <span>{t('inProgress', 'Đang thực hiện')}</span>
             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 ml-2" />
-            <span>Hoàn thành</span>
+            <span>{t('completed', 'Hoàn thành')}</span>
             <span className="w-2.5 h-2.5 rounded-sm bg-red-500 ml-2" />
-            <span>Quá hạn</span>
+            <span>{t('overdue', 'Quá hạn')}</span>
           </div>
 
           <button
@@ -258,7 +260,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             }`}
           >
             <Plus size={13} strokeWidth={2.5} />
-            <span>Thêm công việc</span>
+            <span>{t('newTask', 'Thêm công việc')}</span>
           </button>
         </div>
       </div>
@@ -281,8 +283,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
               ? 'border-[#2f2f2f] bg-[#1a1a1a] text-[#9b9a97]' 
               : 'border-[#e8e7e4] bg-[#f7f6f3] text-[#9b9a97]'
           }`}>
-            <span>Tên công việc ({sortedTasks.length})</span>
-            <span>Thời hạn</span>
+            <span>{t('tableTaskName', 'Tên công việc')} ({sortedTasks.length})</span>
+            <span>{t('tableDueDate', 'Thời hạn')}</span>
           </div>
 
           {/* List items */}

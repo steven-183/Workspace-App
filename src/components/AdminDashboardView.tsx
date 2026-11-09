@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { AppTheme, PriorityLevel, ProjectPage, StatusId, Task, User, UserRole } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
 import { formatDateVi, formatShortDate, isOverdue, getTodayString, diffInDays } from '../utils/dateUtils';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, formatDateLocale, translatePriority } from '../context/LanguageContext';
 import { 
   ShieldAlert, 
   ShieldCheck, 
@@ -190,17 +190,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <ShieldAlert size={28} />
         </div>
         <h2 className="text-lg font-bold text-[#18181b] dark:text-[#f4f4f5] mb-2">
-          Yêu cầu đăng nhập quản trị
+          {language === 'en' ? 'Admin Sign-in Required' : 'Yêu cầu đăng nhập quản trị'}
         </h2>
         <p className="text-xs text-[#71717a] dark:text-[#a1a1aa] max-w-md mb-6 leading-relaxed">
-          Dashboard Quản trị dành riêng cho Quản trị viên (Admin) để theo dõi khối lượng công việc, tỷ lệ hoàn thành và đôn đốc các nhiệm vụ quá hạn của đội ngũ.
+          {language === 'en' 
+            ? 'The Admin Dashboard is exclusively for Administrators to track team workloads, completion rates, and manage overdue tasks.'
+            : 'Dashboard Quản trị dành riêng cho Quản trị viên (Admin) để theo dõi khối lượng công việc, tỷ lệ hoàn thành và đôn đốc các nhiệm vụ quá hạn của đội ngũ.'}
         </p>
         <button
           onClick={onOpenAuthModal}
           className="px-5 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
         >
           <Lock size={15} />
-          <span>Đăng nhập với tài khoản Admin</span>
+          <span>{language === 'en' ? 'Sign in with Admin Account' : 'Đăng nhập với tài khoản Admin'}</span>
         </button>
       </div>
     );
@@ -214,17 +216,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <Lock size={28} />
         </div>
         <h2 className="text-lg font-bold text-[#18181b] dark:text-[#f4f4f5] mb-2">
-          Khu vực giới hạn quyền truy cập
+          {language === 'en' ? 'Access Restricted Area' : 'Khu vực giới hạn quyền truy cập'}
         </h2>
         <p className="text-xs text-[#71717a] dark:text-[#a1a1aa] max-w-md mb-6 leading-relaxed">
-          Tài khoản của bạn (<strong className="text-[#18181b] dark:text-white">{currentUser.name}</strong>) hiện đang có vai trò là <strong>Thành viên (Member)</strong>. Bạn cần quyền <strong>Quản trị viên (Admin)</strong> để xem dashboard tiến độ của toàn đội ngũ.
+          {language === 'en' ? (
+            <>
+              Your account (<strong className="text-[#18181b] dark:text-white">{currentUser.name}</strong>) currently has the <strong>Member</strong> role. You need <strong>Admin</strong> privileges to view full team progress.
+            </>
+          ) : (
+            <>
+              Tài khoản của bạn (<strong className="text-[#18181b] dark:text-white">{currentUser.name}</strong>) hiện đang có vai trò là <strong>Thành viên (Member)</strong>. Bạn cần quyền <strong>Quản trị viên (Admin)</strong> để xem dashboard tiến độ của toàn đội ngũ.
+            </>
+          )}
         </p>
         <button
           onClick={() => onUpdateUserRole(currentUser.id, 'admin')}
           className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
         >
           <ShieldCheck size={15} />
-          <span>Nâng cấp tài khoản thành Quản trị viên (Admin)</span>
+          <span>{language === 'en' ? 'Upgrade account to Admin' : 'Nâng cấp tài khoản thành Quản trị viên (Admin)'}</span>
         </button>
       </div>
     );
@@ -468,9 +478,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               darkMode ? 'bg-[#141518] border-white/[0.06]' : 'bg-white border-[#e5e5e5]'
             }`}>
               <Inbox size={32} className="mx-auto text-[#71717a] mb-2" />
-              <div className="text-sm font-bold text-[#18181b] dark:text-white">Không tìm thấy thành viên nào</div>
+              <div className="text-sm font-bold text-[#18181b] dark:text-white">
+                {language === 'en' ? 'No members found' : 'Không tìm thấy thành viên nào'}
+              </div>
               <p className="text-xs text-[#71717a] dark:text-[#a1a1aa] mt-1">
-                Thử đổi từ khóa tìm kiếm hoặc bỏ bộ lọc hiện tại.
+                {language === 'en' ? 'Try changing your search keyword or clearing current filters.' : 'Thử đổi từ khóa tìm kiếm hoặc bỏ bộ lọc hiện tại.'}
               </p>
             </div>
           ) : (
@@ -498,7 +510,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           className="w-11 h-11 rounded-2xl object-cover border border-black/10 dark:border-white/10"
                         />
                         {stat.user.role === 'admin' && (
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#2563eb] text-white flex items-center justify-center shadow-xs" title="Quản trị viên">
+                          <div 
+                            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#2563eb] text-white flex items-center justify-center shadow-xs" 
+                            title={language === 'en' ? 'Administrator' : 'Quản trị viên'}
+                          >
                             <ShieldCheck size={10} />
                           </div>
                         )}
@@ -511,7 +526,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           </span>
                           {isSelf && (
                             <span className="text-[10px] text-[#2563eb] dark:text-blue-400 font-semibold bg-blue-50 dark:bg-blue-950 px-1.5 py-0.2 rounded">
-                              Bạn
+                              {language === 'en' ? 'You' : 'Bạn'}
                             </span>
                           )}
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
@@ -519,11 +534,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300'
                               : 'bg-black/5 text-[#71717a] dark:bg-white/5 dark:text-[#a1a1aa]'
                           }`}>
-                            {stat.user.role === 'admin' ? 'Quản trị viên' : 'Thành viên'}
+                            {stat.user.role === 'admin' 
+                              ? (language === 'en' ? 'Admin' : 'Quản trị viên') 
+                              : (language === 'en' ? 'Member' : 'Thành viên')}
                           </span>
                         </div>
                         <div className="text-xs text-[#71717a] dark:text-[#a1a1aa] truncate mt-0.5 font-mono">
-                          {stat.user.email || 'Chưa cập nhật email'}
+                          {stat.user.email || (language === 'en' ? 'No email' : 'Chưa cập nhật email')}
                         </div>
                       </div>
                     </div>
@@ -532,7 +549,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <div className="grid grid-cols-4 gap-3 sm:gap-6 shrink-0 py-2 sm:py-0 border-y sm:border-y-0 border-black/5 dark:border-white/5">
                       {/* Total Assigned */}
                       <div className="text-center sm:text-left">
-                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">Được giao</div>
+                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">
+                          {language === 'en' ? 'Assigned' : 'Được giao'}
+                        </div>
                         <div className="text-base sm:text-lg font-bold font-mono tabular-nums text-[#18181b] dark:text-white">
                           {stat.totalAssigned}
                         </div>
@@ -540,7 +559,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                       {/* In Progress */}
                       <div className="text-center sm:text-left">
-                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">Đang làm</div>
+                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">
+                          {language === 'en' ? 'In Progress' : 'Đang làm'}
+                        </div>
                         <div className="text-base sm:text-lg font-bold font-mono tabular-nums text-amber-600 dark:text-amber-400">
                           {stat.inProgressCount}
                         </div>
@@ -548,7 +569,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                       {/* Completed */}
                       <div className="text-center sm:text-left">
-                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">Hoàn thành</div>
+                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">
+                          {language === 'en' ? 'Completed' : 'Hoàn thành'}
+                        </div>
                         <div className="text-base sm:text-lg font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
                           {stat.completedCount}
                         </div>
@@ -556,7 +579,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                       {/* Overdue */}
                       <div className="text-center sm:text-left">
-                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">Quá hạn</div>
+                        <div className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">
+                          {language === 'en' ? 'Overdue' : 'Quá hạn'}
+                        </div>
                         <div className={`text-base sm:text-lg font-bold font-mono tabular-nums ${
                           stat.overdueCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-[#71717a]'
                         }`}>
@@ -570,7 +595,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       {/* Completion Progress Bar */}
                       <div className="w-full sm:flex-1">
                         <div className="flex items-center justify-between text-xs mb-1">
-                          <span className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">Tỷ lệ xong</span>
+                          <span className="text-[11px] text-[#71717a] dark:text-[#a1a1aa]">
+                            {language === 'en' ? 'Completion' : 'Tỷ lệ xong'}
+                          </span>
                           <span className="font-bold font-mono tabular-nums text-[#18181b] dark:text-white">
                             {stat.completionRate}%
                           </span>
@@ -601,17 +628,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 ? 'bg-emerald-600 text-white'
                                 : 'bg-rose-600 hover:bg-rose-700 text-white'
                             }`}
-                            title={`Gửi thông báo nhắc nhở ${stat.overdueCount} công việc quá hạn đến ${stat.user.name}`}
+                            title={language === 'en' ? `Send reminder for ${stat.overdueCount} overdue tasks to ${stat.user.name}` : `Gửi thông báo nhắc nhở ${stat.overdueCount} công việc quá hạn đến ${stat.user.name}`}
                           >
                             {remindingUserId === stat.user.id ? (
                               <>
                                 <Check size={13} />
-                                <span>Đã gửi!</span>
+                                <span>{language === 'en' ? 'Sent!' : 'Đã gửi!'}</span>
                               </>
                             ) : (
                               <>
                                 <Bell size={13} />
-                                <span>Nhắc nhở</span>
+                                <span>{language === 'en' ? 'Remind' : 'Nhắc nhở'}</span>
                               </>
                             )}
                           </button>
@@ -625,9 +652,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               ? 'border-white/10 hover:bg-white/5 text-[#a1a1aa] hover:text-white' 
                               : 'border-[#e5e5e5] hover:bg-[#f4f4f5] text-[#52525b] hover:text-black'
                           }`}
-                          title={`Chuyển quyền sang ${stat.user.role === 'admin' ? 'Thành viên' : 'Quản trị viên'}`}
+                          title={language === 'en' ? `Change role to ${stat.user.role === 'admin' ? 'Member' : 'Admin'}` : `Chuyển quyền sang ${stat.user.role === 'admin' ? 'Thành viên' : 'Quản trị viên'}`}
                         >
-                          {stat.user.role === 'admin' ? 'Hạ quyền' : 'Thăng Admin'}
+                          {stat.user.role === 'admin' 
+                            ? (language === 'en' ? 'Demote' : 'Hạ quyền') 
+                            : (language === 'en' ? 'Promote' : 'Thăng Admin')}
                         </button>
 
                         {/* Accordion Expand Tasks Button */}
@@ -638,7 +667,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               ? (darkMode ? 'bg-white/10 text-white border-white/20' : 'bg-[#e5e5e5] text-black border-black/10')
                               : (darkMode ? 'border-white/10 hover:bg-white/5 text-[#71717a]' : 'border-[#e5e5e5] hover:bg-[#f4f4f5] text-[#71717a]')
                           }`}
-                          title={isExpanded ? 'Thu gọn danh sách việc' : 'Xem danh sách công việc của người này'}
+                          title={isExpanded 
+                            ? (language === 'en' ? 'Collapse task list' : 'Thu gọn danh sách việc') 
+                            : (language === 'en' ? 'View user task list' : 'Xem danh sách công việc của người này')}
                         >
                           {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                         </button>
@@ -654,7 +685,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="text-xs font-bold text-[#18181b] dark:text-white flex items-center gap-1.5">
                           <Layers size={14} className="text-[#2563eb]" />
-                          <span>Chi tiết công việc của {stat.user.name}</span>
+                          <span>{language === 'en' ? `Task details for ${stat.user.name}` : `Chi tiết công việc của ${stat.user.name}`}</span>
                         </div>
 
                         {/* Segmented filter for user's tasks */}
@@ -667,7 +698,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 : 'text-[#71717a] hover:text-[#18181b] dark:hover:text-white'
                             }`}
                           >
-                            Quá hạn ({stat.overdueCount})
+                            {language === 'en' ? `Overdue (${stat.overdueCount})` : `Quá hạn (${stat.overdueCount})`}
                           </button>
                           <button
                             onClick={() => setSelectedTaskFilter('in_progress')}
@@ -677,7 +708,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 : 'text-[#71717a] hover:text-[#18181b] dark:hover:text-white'
                             }`}
                           >
-                            Đang làm ({stat.inProgressCount})
+                            {language === 'en' ? `In Progress (${stat.inProgressCount})` : `Đang làm (${stat.inProgressCount})`}
                           </button>
                           <button
                             onClick={() => setSelectedTaskFilter('done')}
@@ -687,7 +718,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 : 'text-[#71717a] hover:text-[#18181b] dark:hover:text-white'
                             }`}
                           >
-                            Đã xong ({stat.completedCount})
+                            {language === 'en' ? `Done (${stat.completedCount})` : `Đã xong (${stat.completedCount})`}
                           </button>
                           <button
                             onClick={() => setSelectedTaskFilter('all')}
@@ -697,7 +728,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 : 'text-[#71717a] hover:text-[#18181b] dark:hover:text-white'
                             }`}
                           >
-                            Tất cả ({stat.totalAssigned})
+                            {language === 'en' ? `All (${stat.totalAssigned})` : `Tất cả (${stat.totalAssigned})`}
                           </button>
                         </div>
                       </div>
@@ -740,8 +771,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                       <span className="truncate">📁 {project.title}</span>
                                       <span>·</span>
                                       <span className={overdue ? 'text-rose-500 font-bold font-mono' : 'font-mono'}>
-                                        {task.dueDate ? `Hạn: ${formatShortDate(task.dueDate)}` : 'Chưa có hạn'}
-                                        {overdue && ` (Trễ ${diffInDays(task.dueDate, getTodayString())} ngày)`}
+                                        {task.dueDate 
+                                          ? `${language === 'en' ? 'Due:' : 'Hạn:'} ${formatDateLocale(task.dueDate, language)}` 
+                                          : (language === 'en' ? 'No due date' : 'Chưa có hạn')}
+                                        {overdue && ` (${language === 'en' ? `${diffInDays(task.dueDate, getTodayString())}d overdue` : `Trễ ${diffInDays(task.dueDate, getTodayString())} ngày`})`}
                                       </span>
                                     </div>
                                   </div>
@@ -749,7 +782,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                                 <div className="flex items-center gap-2 shrink-0">
                                   <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${priority.color}`}>
-                                    {priority.label}
+                                    {translatePriority(task.priority, language)}
                                   </span>
                                   <ExternalLink size={12} className="text-[#71717a]" />
                                 </div>
@@ -811,7 +844,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         {task.title}
                       </span>
                       <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 font-mono shrink-0">
-                        Quá {daysLate} ngày
+                        {language === 'en' ? `${daysLate}d overdue` : `Quá ${daysLate} ngày`}
                       </span>
                     </div>
 
@@ -828,7 +861,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </span>
                       <span>·</span>
                       <span className="font-mono text-rose-600 dark:text-rose-400 font-medium">
-                        Hạn: {formatDateVi(task.dueDate)}
+                        {language === 'en' ? 'Due:' : 'Hạn:'} {formatDateLocale(task.dueDate, language)}
                       </span>
                     </div>
                   </div>
@@ -848,15 +881,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         </span>
                       </div>
                     ) : (
-                      <span className="text-[11px] text-[#71717a] italic">Chưa giao</span>
+                      <span className="text-[11px] text-[#71717a] italic">
+                        {language === 'en' ? 'Unassigned' : 'Chưa giao'}
+                      </span>
                     )}
 
                     {/* Quick Remind Button for this single task */}
                     {assignees.length > 0 && (
                       <button
-                        onClick={() => onSendReminder(assignees[0], [task], `Admin nhắc nhở bạn đẩy nhanh tiến độ cho công việc "${task.title}" đang bị quá hạn!`)}
+                        onClick={() => onSendReminder(
+                          assignees[0], 
+                          [task], 
+                          language === 'en' 
+                            ? `Admin reminder: please accelerate progress on overdue task "${task.title}"!` 
+                            : `Admin nhắc nhở bạn đẩy nhanh tiến độ cho công việc "${task.title}" đang bị quá hạn!`
+                        )}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                        title={`Gửi nhắc nhở riêng cho job "${task.title}"`}
+                        title={language === 'en' ? `Send reminder for task "${task.title}"` : `Gửi nhắc nhở riêng cho job "${task.title}"`}
                       >
                         <Bell size={11} />
                         <span className="hidden sm:inline">{t('remind', 'Nhắc nhở')}</span>
@@ -866,7 +907,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <button
                       onClick={() => onOpenTask(project.id, task.id)}
                       className="p-1.5 rounded-lg text-[#71717a] hover:text-black dark:hover:text-white transition-colors cursor-pointer"
-                      title="Mở chi tiết công việc"
+                      title={language === 'en' ? 'Open task details' : 'Mở chi tiết công việc'}
                     >
                       <ExternalLink size={14} />
                     </button>

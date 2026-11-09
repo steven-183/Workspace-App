@@ -1,8 +1,9 @@
 import React from 'react';
 import { ProjectPage, Task } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
-import { formatShortDate, isDueToday, isOverdue } from '../utils/dateUtils';
-import { Check, Plus, Calendar, AlertCircle, UserCheck } from 'lucide-react';
+import { formatShortDate, isOverdue } from '../utils/dateUtils';
+import { Check, Plus, Calendar, UserCheck } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ListViewProps {
   project: ProjectPage;
@@ -21,6 +22,8 @@ export const ListView: React.FC<ListViewProps> = ({
   onAddNewTask,
   darkMode,
 }) => {
+  const { t, translateStatus, translatePriority } = useLanguage();
+
   return (
     <div className="w-full max-w-4xl mx-auto p-6 sm:p-10">
       <div className="space-y-1">
@@ -69,21 +72,19 @@ export const ListView: React.FC<ListViewProps> = ({
                 >
                   {task.title}
                 </span>
-
-
               </div>
 
               {/* Right meta: Status, Priority, DueDate, Assignees */}
               <div className="flex items-center gap-2 shrink-0 text-xs">
                 {/* Status Badge */}
                 <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${colStyle.badgeBg}`}>
-                  {column?.title || task.status}
+                  {translateStatus(column?.title || task.status)}
                 </span>
 
                 {/* Priority */}
                 {task.priority !== 'none' && (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${priority.badgeBg} ${priority.badgeText}`}>
-                    {priority.label}
+                    {translatePriority(task.priority)}
                   </span>
                 )}
 
@@ -99,13 +100,13 @@ export const ListView: React.FC<ListViewProps> = ({
 
                 {/* Assignees */}
                 {task.assignees && task.assignees.length > 0 && (
-                  <div className="flex items-center -space-x-1.5" title={`Người làm: ${task.assignees.map(u => u.name).join(', ')}`}>
+                  <div className="flex items-center -space-x-1.5" title={`${t('assigneePrefix', 'Người làm')}: ${task.assignees.map(u => u.name).join(', ')}`}>
                     {task.assignees.map((u) => (
                       <img
                         key={u.id}
                         src={u.avatar}
                         alt={u.name}
-                        title={`Người làm: ${u.name}`}
+                        title={`${t('assigneePrefix', 'Người làm')}: ${u.name}`}
                         referrerPolicy="no-referrer"
                         className="w-4 h-4 rounded-full ring-1 ring-white dark:ring-[#222] object-cover"
                       />
@@ -117,10 +118,10 @@ export const ListView: React.FC<ListViewProps> = ({
                 {task.creator && (
                   <div 
                     className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-medium border border-purple-200/50"
-                    title={`Người duyệt: ${task.creator.name}`}
+                    title={`${t('reviewerPrefix', 'Người duyệt')}: ${task.creator.name}`}
                   >
                     <UserCheck size={10} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                    <span className="truncate max-w-[65px]">Duyệt: {task.creator.name}</span>
+                    <span className="truncate max-w-[65px]">{t('reviewerBadge', 'Duyệt')}: {task.creator.name}</span>
                   </div>
                 )}
               </div>
@@ -135,7 +136,7 @@ export const ListView: React.FC<ListViewProps> = ({
           }`}
         >
           <Plus size={14} />
-          <span>Thêm công việc mới</span>
+          <span>{t('newTask', 'Thêm công việc mới')}</span>
         </button>
       </div>
     </div>

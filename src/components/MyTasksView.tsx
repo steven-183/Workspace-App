@@ -24,6 +24,7 @@ import {
   Eye,
   ShieldCheck
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MyTasksViewProps {
   projects: ProjectPage[];
@@ -62,6 +63,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
   appTheme = 'light',
 }) => {
   const isPink = appTheme === 'qanda_pink';
+  const { language, t, translateStatus, translatePriority } = useLanguage();
   const [groupMode, setGroupMode] = useState<GroupMode>('dueDate');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,16 +164,18 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-[#2383e2] flex items-center justify-center mx-auto mb-4">
             <UserCheck size={32} />
           </div>
-          <h2 className="text-xl font-bold mb-2">Đăng nhập để xem công việc của bạn</h2>
+          <h2 className="text-xl font-bold mb-2">
+            {language === 'en' ? 'Sign in to view your tasks' : 'Đăng nhập để xem công việc của bạn'}
+          </h2>
           <p className="text-xs text-[#9b9a97] mb-6 leading-relaxed">
-            Đăng nhập bằng địa chỉ Email của bạn để tự động lọc và theo dõi tất cả các công việc được giao hoặc cần bạn duyệt trên mọi dự án.
+            {t('loginToViewPersonal', 'Đăng nhập bằng địa chỉ Email của bạn để tự động lọc và theo dõi tất cả các công việc được giao hoặc cần bạn duyệt trên mọi dự án.')}
           </p>
           <button
             onClick={onOpenAuthModal}
             className="w-full py-2.5 px-4 bg-[#2383e2] hover:bg-[#1d6ec0] text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
           >
             <LogIn size={15} />
-            <span>Đăng nhập bằng Email</span>
+            <span>{t('loginEmail', 'Đăng nhập bằng Email')}</span>
           </button>
         </div>
       </div>
@@ -197,7 +201,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     if (overdue.length > 0) {
       groupedSections.push({
         id: 'overdue',
-        title: 'Quá hạn (Cần xử lý ngay)',
+        title: language === 'en' ? 'Overdue (Urgent action)' : 'Quá hạn (Cần xử lý ngay)',
         icon: <AlertCircle size={14} className="text-red-500" />,
         items: overdue,
       });
@@ -205,7 +209,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     if (todayItems.length > 0) {
       groupedSections.push({
         id: 'today',
-        title: 'Hôm nay',
+        title: t('today', 'Hôm nay'),
         icon: <Clock size={14} className="text-amber-500" />,
         items: todayItems,
       });
@@ -213,7 +217,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     if (thisWeek.length > 0) {
       groupedSections.push({
         id: 'this_week',
-        title: 'Tuần này',
+        title: language === 'en' ? 'This week' : 'Tuần này',
         icon: <Calendar size={14} className="text-blue-500" />,
         items: thisWeek,
       });
@@ -221,7 +225,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     if (upcoming.length > 0) {
       groupedSections.push({
         id: 'upcoming',
-        title: 'Sắp tới',
+        title: language === 'en' ? 'Upcoming' : 'Sắp tới',
         icon: <Calendar size={14} className="text-emerald-500" />,
         items: upcoming,
       });
@@ -229,7 +233,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     if (noDate.length > 0) {
       groupedSections.push({
         id: 'no_date',
-        title: 'Chưa xếp ngày',
+        title: language === 'en' ? 'No due date' : 'Chưa xếp ngày',
         icon: <Inbox size={14} className="text-[#9b9a97]" />,
         items: noDate,
       });
@@ -247,22 +251,14 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       }
     });
   } else if (groupMode === 'status') {
-    const statusMap: Record<string, string> = {
-      todo: 'Cần làm',
-      in_progress: 'Đang làm',
-      in_review: 'Chờ review',
-      done: 'Đã hoàn thành',
-      blocked: 'Bị nghẽn',
-    };
-
     const statusOrder: StatusId[] = ['in_progress', 'in_review', 'todo', 'blocked', 'done'];
     statusOrder.forEach((st) => {
       const sItems = filteredList.filter(({ task: t }) => t.status === st);
       if (sItems.length > 0) {
         groupedSections.push({
           id: st,
-          title: statusMap[st] || st,
-          icon: st === 'in_review' ? <Eye size={13} className="text-purple-500" /> : <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />,
+          title: translateStatus(st),
+          icon: <CheckCircle2 size={14} className="text-[#2383e2]" />,
           items: sItems,
         });
       }
@@ -302,7 +298,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 </span>
               </div>
               <p className={`text-xs mt-0.5 ${isPink ? 'text-[#881337]/70' : 'text-[#9b9a97]'}`}>
-                {currentUser.email} • Theo dõi việc được giao và các công việc cần bạn duyệt
+                {currentUser.email} • {language === 'en' ? 'Track assigned tasks and jobs waiting for your review' : 'Theo dõi việc được giao và các công việc cần bạn duyệt'}
               </p>
             </div>
           </div>
@@ -315,7 +311,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               }`}
             >
               <Plus size={14} strokeWidth={2.5} />
-              <span>Tạo việc cho tôi</span>
+              <span>{language === 'en' ? 'New Task for Me' : 'Tạo việc cho tôi'}</span>
             </button>
           </div>
         </div>
@@ -327,7 +323,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               ? (isPink ? 'bg-[#fff0f3] border-[#e11d48]' : darkMode ? 'bg-[#2a2a2a] border-[#555]' : 'bg-blue-50/50 border-[#2383e2]')
               : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
           }`} onClick={() => setStatusFilter('all')}>
-            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Tổng việc liên quan</div>
+            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
+              {language === 'en' ? 'Total Related Tasks' : 'Tổng việc liên quan'}
+            </div>
             <div className={`text-xl font-bold mt-1 ${isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'}`}>{allCount}</div>
           </div>
 
@@ -336,7 +334,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               ? (isPink ? 'bg-[#fff0f3] border-amber-500' : darkMode ? 'bg-[#2a2a2a] border-amber-500' : 'bg-amber-50/50 border-amber-400')
               : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
           }`} onClick={() => setStatusFilter('active')}>
-            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Đang làm (Phụ trách)</div>
+            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
+              {language === 'en' ? 'In Progress (Assignee)' : 'Đang làm (Phụ trách)'}
+            </div>
             <div className="text-xl font-bold mt-1 text-amber-500">{activeCount}</div>
           </div>
 
@@ -348,7 +348,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                   : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]'))
           }`} onClick={() => setStatusFilter('review')}>
             <div className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold flex items-center justify-between">
-              <span>Cần review (Bạn duyệt)</span>
+              <span>{language === 'en' ? 'Needs Review (You)' : 'Cần review (Bạn duyệt)'}</span>
               {reviewCount > 0 && <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />}
             </div>
             <div className="text-xl font-bold mt-1 text-purple-600 dark:text-purple-400">{reviewCount}</div>
@@ -359,7 +359,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               ? (darkMode ? 'bg-[#2a2a2a] border-emerald-500' : 'bg-emerald-50/50 border-emerald-400')
               : (isPink ? 'bg-[#fff5f6] border-[#fecdd3]' : darkMode ? 'bg-[#252525] border-[#383838]' : 'bg-white border-[#e3e2e0]')
           }`} onClick={() => setStatusFilter('done')}>
-            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Đã hoàn thành</div>
+            <div className={`text-[11px] font-medium ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
+              {t('completed', 'Đã hoàn thành')}
+            </div>
             <div className="text-xl font-bold mt-1 text-emerald-500">{doneCount}</div>
           </div>
         </div>
@@ -383,7 +385,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 : (isPink ? 'text-[#881337] hover:bg-[#fff0f3]' : darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
             }`}
           >
-            Tất cả ({allCount})
+            {language === 'en' ? `All (${allCount})` : `Tất cả (${allCount})`}
           </button>
 
           <button
@@ -394,7 +396,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 : (isPink ? 'text-[#881337] hover:bg-[#fff0f3]' : darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
             }`}
           >
-            Đang làm ({activeCount})
+            {language === 'en' ? `In Progress (${activeCount})` : `Đang làm (${activeCount})`}
           </button>
 
           <button
@@ -408,7 +410,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             }`}
           >
             <Eye size={13} />
-            <span>Cần review</span>
+            <span>{language === 'en' ? 'Needs Review' : 'Cần review'}</span>
             <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
               statusFilter === 'review' 
                 ? 'bg-white/25 text-white' 
@@ -426,7 +428,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 : (isPink ? 'text-[#881337] hover:bg-[#fff0f3]' : darkMode ? 'text-[#888] hover:bg-[#282828]' : 'text-[#787774] hover:bg-[#efedea]')
             }`}
           >
-            Đã xong ({doneCount})
+            {language === 'en' ? `Done (${doneCount})` : `Đã xong (${doneCount})`}
           </button>
         </div>
 
@@ -439,7 +441,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             <Search size={13} className={isPink ? 'text-[#881337]' : 'text-[#9b9a97]'} />
             <input
               type="text"
-              placeholder="Tìm việc của tôi..."
+              placeholder={language === 'en' ? 'Search my tasks...' : 'Tìm việc của tôi...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`bg-transparent outline-none text-xs w-28 sm:w-36 ${
@@ -460,7 +462,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                   : (isPink ? 'text-[#881337]' : 'text-[#787774]')
               }`}
             >
-              Hạn chót
+              {language === 'en' ? 'Due date' : 'Hạn chót'}
             </button>
             <button
               onClick={() => setGroupMode('project')}
@@ -470,7 +472,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                   : (isPink ? 'text-[#881337]' : 'text-[#787774]')
               }`}
             >
-              Dự án
+              {language === 'en' ? 'Project' : 'Dự án'}
             </button>
             <button
               onClick={() => setGroupMode('status')}
@@ -480,7 +482,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                   : (isPink ? 'text-[#881337]' : 'text-[#787774]')
               }`}
             >
-              Trạng thái
+              {language === 'en' ? 'Status' : 'Trạng thái'}
             </button>
           </div>
         </div>
@@ -565,7 +567,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                           {isInReview && isReviewer && (
                             <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-semibold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
                               <UserCheck size={10} />
-                              <span>Cần bạn duyệt</span>
+                              <span>{language === 'en' ? 'Needs your review' : 'Cần bạn duyệt'}</span>
                             </span>
                           )}
 
@@ -582,7 +584,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                                 ? 'bg-[#2a2a2a] border-[#3a3a3a] text-[#aaa] hover:text-white' 
                                 : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#787774] hover:text-black'
                             }`}
-                            title="Chuyển đến bảng dự án này"
+                            title={language === 'en' ? 'Go to this project board' : 'Chuyển đến bảng dự án này'}
                           >
                             <span>{p.icon || '📄'}</span>
                             <span className="max-w-[120px] truncate">{p.title}</span>
@@ -597,7 +599,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                             <div className="flex items-center gap-1">
                               <CheckSquare size={10} />
                               <span>
-                                {t.subtasks.filter((s) => s.completed).length}/{t.subtasks.length} việc con
+                                {t.subtasks.filter((s) => s.completed).length}/{t.subtasks.length} {language === 'en' ? 'subtasks' : 'việc con'}
                               </span>
                             </div>
                           )}
@@ -605,7 +607,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                           {t.creator && (
                             <div className="hidden md:flex items-center gap-1">
                               <UserCheck size={10} className="text-purple-500" />
-                              <span>Người duyệt: {t.creator.name}</span>
+                              <span>{t('reviewerPrefix', 'Người duyệt')}: {t.creator.name}</span>
                             </div>
                           )}
                         </div>
@@ -617,13 +619,13 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                       {/* Priority */}
                       {t.priority !== 'none' && (
                         <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${priority.badgeBg} ${priority.badgeText}`}>
-                          {priority.label}
+                          {translatePriority(t.priority)}
                         </span>
                       )}
 
                       {/* Status */}
                       <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold ${colStyle.badgeBg}`}>
-                        {col?.title || (t.status === 'in_review' ? 'Chờ review' : t.status)}
+                        {translateStatus(col?.title || (t.status === 'in_review' ? 'Chờ review' : t.status))}
                       </span>
 
                       {/* Due Date */}
@@ -659,12 +661,12 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           <div className="py-16 text-center text-xs text-[#9b9a97] space-y-2">
             <UserCheck size={32} className="mx-auto text-[#9b9a97]/60" />
             <p className="font-semibold text-sm text-[#5a5a58] dark:text-[#bbb]">
-              Không tìm thấy công việc nào phù hợp với bộ lọc.
+              {language === 'en' ? 'No tasks matching your current filters.' : 'Không tìm thấy công việc nào phù hợp với bộ lọc.'}
             </p>
             <p>
               {statusFilter === 'review'
-                ? 'Hiện tại không có công việc nào ở trạng thái "Chờ review" mà bạn là Người duyệt.'
-                : 'Bạn đã hoàn thành hết hoặc chưa có công việc mới nào được giao.'}
+                ? (language === 'en' ? 'No tasks are currently waiting for your review.' : 'Hiện tại không có công việc nào ở trạng thái "Chờ review" mà bạn là Người duyệt.')
+                : (language === 'en' ? 'You have finished all tasks or no new tasks are assigned to you yet.' : 'Bạn đã hoàn thành hết hoặc chưa có công việc mới nào được giao.')}
             </p>
           </div>
         )}

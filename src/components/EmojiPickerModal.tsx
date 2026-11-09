@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PRESET_EMOJIS } from '../utils/notionStyles';
+import { useLanguage } from '../context/LanguageContext';
 import { Search, X } from 'lucide-react';
 
 interface EmojiPickerModalProps {
@@ -9,12 +10,12 @@ interface EmojiPickerModalProps {
   currentEmoji?: string;
 }
 
-const CATEGORIZED_EMOJIS: Record<string, string[]> = {
-  'Phổ biến': PRESET_EMOJIS,
-  'Công việc & Công nghệ': ['💼', '💻', '📱', '🖥️', '⌨️', '🖱️', '⚙️', '🛠️', '🔧', '📊', '📈', '📉', '📁', '📂', '📑', '📌', '📎', '✏️', '📝', '🔒', '🔑', '🚀', '⚡', '💡'],
-  'Trạng thái & Biểu tượng': ['✅', '❌', '⚠️', '🔥', '⭐', '🌟', '🎯', '🏆', '💎', '🎨', '🧩', '🧪', '🔔', '💬', '🎉', '☕', '🌿', '🌱', '☀️', '🌙', '🌈', '🍀', '❤️', '👍'],
-  'Hình vẽ & Động vật': ['🦊', '🐱', '🐼', '🦁', '🦉', '🚀', '🛸', '🛰️', '🪐', '🌍', '🏔️', '🏖️', '🏝️', '🎪', '🏰', '🏠', '🗼', '🚢', '✈️', '🚗', '🚲', '🛴', '🎈', '🎁'],
-};
+const CATEGORIZED_EMOJIS: { vi: string; en: string; emojis: string[] }[] = [
+  { vi: 'Phổ biến', en: 'Popular', emojis: PRESET_EMOJIS },
+  { vi: 'Công việc & Công nghệ', en: 'Work & Tech', emojis: ['💼', '💻', '📱', '🖥️', '⌨️', '🖱️', '⚙️', '🛠️', '🔧', '📊', '📈', '📉', '📁', '📂', '📑', '📌', '📎', '✏️', '📝', '🔒', '🔑', '🚀', '⚡', '💡'] },
+  { vi: 'Trạng thái & Biểu tượng', en: 'Status & Symbols', emojis: ['✅', '❌', '⚠️', '🔥', '⭐', '🌟', '🎯', '🏆', '💎', '🎨', '🧩', '🧪', '🔔', '💬', '🎉', '☕', '🌿', '🌱', '☀️', '🌙', '🌈', '🍀', '❤️', '👍'] },
+  { vi: 'Hình vẽ & Động vật', en: 'Graphics & Nature', emojis: ['🦊', '🐱', '🐼', '🦁', '🦉', '🚀', '🛸', '🛰️', '🪐', '🌍', '🏔️', '🏖️', '🏝️', '🎪', '🏰', '🏠', '🗼', '🚢', '✈️', '🚗', '🚲', '🛴', '🎈', '🎁'] },
+];
 
 export const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
   isOpen,
@@ -22,6 +23,7 @@ export const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
   onSelectEmoji,
   currentEmoji,
 }) => {
+  const { language } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
 
   if (!isOpen) return null;
@@ -37,7 +39,7 @@ export const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
             <Search size={16} className="text-[#9b9a97]" />
             <input
               type="text"
-              placeholder="Tìm kiếm biểu tượng emoji..."
+              placeholder={language === 'en' ? 'Search emoji icons...' : 'Tìm kiếm biểu tượng emoji...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-transparent text-sm text-[#37352f] placeholder-[#9b9a97] outline-none w-full"
@@ -53,13 +55,15 @@ export const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
         </div>
 
         <div className="p-3 overflow-y-auto flex-1 space-y-4 max-h-[360px]">
-          {Object.entries(CATEGORIZED_EMOJIS).map(([category, emojis]) => {
-            const filtered = emojis.filter((e) => !searchTerm || e.includes(searchTerm));
+          {CATEGORIZED_EMOJIS.map((group) => {
+            const filtered = group.emojis.filter((e) => !searchTerm || e.includes(searchTerm));
             if (filtered.length === 0) return null;
 
             return (
-              <div key={category}>
-                <div className="text-xs font-semibold text-[#9b9a97] mb-2 uppercase tracking-wider">{category}</div>
+              <div key={group.vi}>
+                <div className="text-xs font-semibold text-[#9b9a97] mb-2 uppercase tracking-wider">
+                  {language === 'en' ? group.en : group.vi}
+                </div>
                 <div className="grid grid-cols-6 gap-1.5">
                   {filtered.map((emoji, idx) => (
                     <button

@@ -1,19 +1,14 @@
 import React, { useState } from 'react';
 import { AppTheme, PriorityLevel, ProjectPage, StatusId, Task } from '../types';
 import { NOTION_COLORS, PRIORITY_CONFIG } from '../utils/notionStyles';
-import { formatDateVi, formatShortDate, isDueToday, isOverdue } from '../utils/dateUtils';
+import { formatShortDate, isDueToday, isOverdue } from '../utils/dateUtils';
 import { 
   Plus, 
   Check, 
-  ChevronDown, 
   Calendar, 
   AlertCircle, 
-  CheckSquare, 
-  MoreHorizontal,
-  ArrowUpDown,
-  Tag as TagIcon,
-  UserCheck
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface TableViewProps {
   project: ProjectPage;
@@ -32,31 +27,34 @@ export const TableView: React.FC<TableViewProps> = ({
   onTaskClick,
   onUpdateTask,
   onAddNewTask,
-  onDeleteTask,
   darkMode,
   appTheme = 'light',
 }) => {
   const isPink = appTheme === 'qanda_pink';
+  const { language, t, translateStatus, translatePriority } = useLanguage();
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
-  const [titleDraft, setTitleDraft] = useState('');
-  const [activeDropdown, setActiveDropdown] = useState<{ taskId: string; field: 'status' | 'priority' } | null>(null);
+  const [editingTitleVal, setEditingTitleVal] = useState('');
 
   const completedCount = tasks.filter((t) => t.status === 'done').length;
 
   const handleTitleSubmit = (taskId: string) => {
-    if (titleDraft.trim()) {
-      onUpdateTask(taskId, { title: titleDraft.trim() });
+    if (editingTitleVal.trim()) {
+      onUpdateTask(taskId, { title: editingTitleVal.trim() });
     }
     setEditingTitleId(null);
   };
 
   return (
-    <div className="w-full h-full overflow-x-auto p-6 sm:p-10 no-scrollbar">
-      <div className={`min-w-[880px] rounded-xl border overflow-hidden shadow-xs ${
-        isPink ? 'bg-white border-[#fecdd3]' : darkMode ? 'bg-[#1e1e1e] border-[#2f2f2f]' : 'bg-white border-[#e3e2e0]'
+    <div className="w-full h-full p-4 sm:p-8 overflow-x-auto no-scrollbar">
+      <div className={`min-w-[760px] rounded-xl border overflow-hidden shadow-xs ${
+        isPink 
+          ? 'border-[#fecdd3] bg-white' 
+          : darkMode 
+          ? 'border-[#2f2f2f] bg-[#1e1e1e]' 
+          : 'border-[#e8e7e4] bg-white'
       }`}>
-        {/* Table Header */}
-        <div className={`grid grid-cols-12 border-b text-xs font-semibold uppercase tracking-wider py-2.5 px-4 ${
+        {/* Table Column Headers */}
+        <div className={`grid grid-cols-12 py-2.5 px-4 text-xs font-semibold uppercase tracking-wider border-b select-none ${
           isPink 
             ? 'bg-[#fff5f6] border-[#fecdd3] text-[#881337]' 
             : darkMode 
@@ -64,13 +62,13 @@ export const TableView: React.FC<TableViewProps> = ({
             : 'bg-[#f7f6f3] border-[#e8e7e4] text-[#9b9a97]'
         }`}>
           <div className="col-span-4 flex items-center gap-1.5">
-            <span>Tên công việc</span>
+            <span>{t('tableTaskName', 'Tên công việc')}</span>
           </div>
-          <div className="col-span-2">Trạng thái</div>
-          <div className="col-span-2">Mức ưu tiên</div>
-          <div className="col-span-2">Thời hạn</div>
-          <div className="col-span-1 text-center">Người làm</div>
-          <div className="col-span-1 text-right">Người duyệt</div>
+          <div className="col-span-2">{t('tableStatus', 'Trạng thái')}</div>
+          <div className="col-span-2">{t('tablePriority', 'Mức ưu tiên')}</div>
+          <div className="col-span-2">{t('tableDueDate', 'Thời hạn')}</div>
+          <div className="col-span-1 text-center">{t('tableAssignees', 'Người làm')}</div>
+          <div className="col-span-1 text-right">{t('tableReviewer', 'Người duyệt')}</div>
         </div>
 
         {/* Rows */}
@@ -119,30 +117,26 @@ export const TableView: React.FC<TableViewProps> = ({
                   {editingTitleId === task.id ? (
                     <input
                       type="text"
-                      value={titleDraft}
-                      onChange={(e) => setTitleDraft(e.target.value)}
+                      value={editingTitleVal}
+                      onChange={(e) => setEditingTitleVal(e.target.value)}
                       onBlur={() => handleTitleSubmit(task.id)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-                          handleTitleSubmit(task.id);
-                        }
+                        if (e.key === 'Enter') handleTitleSubmit(task.id);
+                        if (e.key === 'Escape') setEditingTitleId(null);
                       }}
-                      className={`bg-transparent outline-none border-b w-full font-medium ${
-                        isPink ? 'border-[#e11d48] text-[#4c0519]' : 'border-blue-500'
-                      }`}
+                      className="bg-transparent outline-none w-full font-medium"
                       autoFocus
                     />
                   ) : (
                     <span
                       onClick={() => {
-                        setTitleDraft(task.title);
                         setEditingTitleId(task.id);
+                        setEditingTitleVal(task.title);
                       }}
-                      className={`font-medium truncate ${
+                      className={`truncate font-medium hover:underline cursor-text ${
                         task.status === 'done' 
-                          ? (isPink ? 'line-through text-[#881337]/50' : 'line-through text-[#999]') 
-                          : (isPink ? 'text-[#4c0519]' : '')
+                          ? (isPink ? 'line-through text-[#881337]/50' : 'line-through text-[#9b9a97]') 
+                          : ''
                       }`}
                     >
                       {task.title}
@@ -150,103 +144,61 @@ export const TableView: React.FC<TableViewProps> = ({
                   )}
                 </div>
 
-                {/* Status Dropdown Cell */}
-                <div className="col-span-2 relative" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => setActiveDropdown(activeDropdown?.taskId === task.id && activeDropdown.field === 'status' ? null : { taskId: task.id, field: 'status' })}
-                    className={`text-[11px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1.5 ${colStyle.badgeBg}`}
+                {/* Status Column Select */}
+                <div 
+                  className="col-span-2 pr-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <select
+                    value={task.status}
+                    onChange={(e) => onUpdateTask(task.id, { status: e.target.value as StatusId })}
+                    className={`text-[11px] px-2 py-0.5 rounded font-semibold outline-none cursor-pointer border-none ${colStyle.badgeBg}`}
                   >
-                    <span className={`w-1.5 h-1.5 rounded-full ${colStyle.dot}`} />
-                    <span>{column?.title || task.status}</span>
-                    <ChevronDown size={11} className="opacity-60" />
-                  </button>
-
-                  {activeDropdown?.taskId === task.id && activeDropdown.field === 'status' && (
-                    <div className={`absolute top-full left-0 mt-1 w-44 rounded-xl shadow-xl border p-1 z-30 ${
-                      isPink 
-                        ? 'bg-white border-[#fda4af] text-[#4c0519]' 
-                        : darkMode 
-                        ? 'bg-[#262626] border-[#383838]' 
-                        : 'bg-white border-[#e3e2e0]'
-                    }`}>
-                      {project.columns.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            onUpdateTask(task.id, { 
-                              status: c.id,
-                            });
-                            setActiveDropdown(null);
-                          }}
-                          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors ${
-                            task.status === c.id 
-                              ? (isPink ? 'bg-[#ffe4e6] text-[#9f1239] font-semibold' : 'bg-blue-50 dark:bg-blue-950 font-semibold') 
-                              : (isPink ? 'hover:bg-[#fff0f3]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
-                          }`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${NOTION_COLORS[c.color].dot}`} />
-                          <span>{c.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                    {project.columns.map((c) => (
+                      <option key={c.id} value={c.id} className="bg-white text-black">
+                        {translateStatus(c.title)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Priority Dropdown Cell */}
-                <div className="col-span-2 relative" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => setActiveDropdown(activeDropdown?.taskId === task.id && activeDropdown.field === 'priority' ? null : { taskId: task.id, field: 'priority' })}
-                    className={`text-[11px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1.5 ${priority.badgeBg} ${priority.badgeText}`}
+                {/* Priority Select */}
+                <div 
+                  className="col-span-2 pr-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <select
+                    value={task.priority}
+                    onChange={(e) => onUpdateTask(task.id, { priority: e.target.value as PriorityLevel })}
+                    className={`text-[11px] px-2 py-0.5 rounded font-medium outline-none cursor-pointer border-none ${priority.badgeBg} ${priority.badgeText}`}
                   >
-                    <span>{priority.label}</span>
-                    <ChevronDown size={11} className="opacity-60" />
-                  </button>
-
-                  {activeDropdown?.taskId === task.id && activeDropdown.field === 'priority' && (
-                    <div className={`absolute top-full left-0 mt-1 w-40 rounded-xl shadow-xl border p-1 z-30 ${
-                      isPink 
-                        ? 'bg-white border-[#fda4af] text-[#4c0519]' 
-                        : darkMode 
-                        ? 'bg-[#262626] border-[#383838]' 
-                        : 'bg-white border-[#e3e2e0]'
-                    }`}>
-                      {(['urgent', 'high', 'medium', 'low', 'none'] as PriorityLevel[]).map((p) => {
-                        const pCfg = PRIORITY_CONFIG[p];
-                        return (
-                          <button
-                            key={p}
-                            onClick={() => {
-                              onUpdateTask(task.id, { priority: p });
-                              setActiveDropdown(null);
-                            }}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                              task.priority === p 
-                                ? (isPink ? 'bg-[#ffe4e6] text-[#9f1239] font-semibold' : 'bg-blue-50 dark:bg-blue-950 font-semibold') 
-                                : (isPink ? 'hover:bg-[#fff0f3]' : darkMode ? 'hover:bg-[#333]' : 'hover:bg-[#f1f1ef]')
-                            }`}
-                          >
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${pCfg.badgeBg} ${pCfg.badgeText}`}>
-                              {pCfg.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                    {(['urgent', 'high', 'medium', 'low', 'none'] as PriorityLevel[]).map((p) => (
+                      <option key={p} value={p} className="bg-white text-black">
+                        {translatePriority(p)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Dates */}
-                <div className="col-span-2 text-[11px]">
-                  <span className={
-                    overdue 
-                      ? 'text-red-500 font-semibold flex items-center gap-1' 
-                      : isPink 
-                      ? 'text-[#881337]' 
-                      : 'text-[#787774] dark:text-[#aaa]'
-                  }>
-                    {overdue && <AlertCircle size={12} />}
-                    {formatShortDate(task.startDate)} → {formatShortDate(task.dueDate)}
-                  </span>
+                {/* Due Date & Overdue */}
+                <div 
+                  className="col-span-2 flex items-center gap-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Calendar size={12} className={overdue ? 'text-red-500' : 'text-[#9b9a97]'} />
+                  <input
+                    type="date"
+                    value={task.dueDate || ''}
+                    onChange={(e) => onUpdateTask(task.id, { dueDate: e.target.value })}
+                    className={`text-[11px] bg-transparent outline-none cursor-pointer font-mono ${
+                      overdue ? 'text-red-500 font-bold' : isPink ? 'text-[#4c0519]' : darkMode ? 'text-[#ccc]' : 'text-[#787774]'
+                    }`}
+                  />
+                  {overdue && (
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-red-100 text-red-600 font-bold uppercase">
+                      {t('overdue', 'Quá hạn')}
+                    </span>
+                  )}
                 </div>
 
                 {/* Assignees */}
@@ -256,7 +208,7 @@ export const TableView: React.FC<TableViewProps> = ({
                       key={user.id}
                       src={user.avatar}
                       alt={user.name}
-                      title={`Người làm: ${user.name}`}
+                      title={`${t('assigneePrefix', 'Người làm')}: ${user.name}`}
                       referrerPolicy="no-referrer"
                       className={`w-5 h-5 rounded-full ring-2 object-cover ${
                         isPink ? 'ring-[#ffe4e6]' : 'ring-white dark:ring-[#1e1e1e]'
@@ -273,7 +225,7 @@ export const TableView: React.FC<TableViewProps> = ({
                   {task.creator ? (
                     <div 
                       className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/50"
-                      title={`Người duyệt: ${task.creator.name}`}
+                      title={`${t('reviewerPrefix', 'Người duyệt')}: ${task.creator.name}`}
                     >
                       <img
                         src={task.creator.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(task.creator.name)}`}
@@ -307,12 +259,12 @@ export const TableView: React.FC<TableViewProps> = ({
             }`}
           >
             <Plus size={14} />
-            <span>Thêm dòng mới</span>
+            <span>{t('addRow', 'Thêm dòng mới')}</span>
           </button>
 
           <div className="flex items-center gap-6 font-mono text-[11px]">
-            <span>Tổng: <strong className={isPink ? 'text-[#4c0519]' : ''}>{tasks.length} công việc</strong></span>
-            <span>Đã xong: <strong className="text-emerald-600">{completedCount}</strong></span>
+            <span>{language === 'en' ? 'Total: ' : 'Tổng: '}<strong className={isPink ? 'text-[#4c0519]' : ''}>{tasks.length} {language === 'en' ? 'tasks' : 'công việc'}</strong></span>
+            <span>{language === 'en' ? 'Done: ' : 'Đã xong: '}<strong className="text-emerald-600">{completedCount}</strong></span>
           </div>
         </div>
       </div>

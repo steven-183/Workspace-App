@@ -1,11 +1,16 @@
-export function formatDateVi(dateStr?: string): string {
-  if (!dateStr) return 'Chưa đặt ngày';
+export function formatDateVi(dateStr?: string, customLang?: 'vi' | 'en'): string {
+  const lang = customLang || (typeof window !== 'undefined' ? (localStorage.getItem('notion_tasks_app_language_v1') as 'vi' | 'en') : 'vi') || 'vi';
+  if (!dateStr) return lang === 'en' ? 'No due date' : 'Chưa đặt ngày';
   try {
     const d = new Date(dateStr + 'T00:00:00');
     if (isNaN(d.getTime())) return dateStr;
     const day = d.getDate();
     const month = d.getMonth() + 1;
     const year = d.getFullYear();
+    if (lang === 'en') {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[month - 1]} ${day}, ${year}`;
+    }
     return `${day} thg ${month}, ${year}`;
   } catch {
     return dateStr;
@@ -129,7 +134,8 @@ export function formatFullTimestamp(isoString?: string): string {
   }
 }
 
-export function formatRelativeTime(isoString?: string): string {
+export function formatRelativeTime(isoString?: string, customLang?: 'vi' | 'en'): string {
+  const lang = customLang || (typeof window !== 'undefined' ? (localStorage.getItem('notion_tasks_app_language_v1') as 'vi' | 'en') : 'vi') || 'vi';
   if (!isoString) return '--';
   try {
     const d = new Date(isoString);
@@ -137,16 +143,16 @@ export function formatRelativeTime(isoString?: string): string {
     const now = new Date();
     const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
     
-    if (diffSec < 45) return 'Vừa xong';
-    if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
-    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
-    if (diffSec < 172800) return `Hôm qua lúc ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    if (diffSec < 45) return lang === 'en' ? 'Just now' : 'Vừa xong';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)} ${lang === 'en' ? 'mins ago' : 'phút trước'}`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} ${lang === 'en' ? 'hours ago' : 'giờ trước'}`;
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    if (diffSec < 172800) return lang === 'en' ? `Yesterday at ${hh}:${mm}` : `Hôm qua lúc ${hh}:${mm}`;
     
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes} ${day}/${month}`;
+    return `${hh}:${mm} ${day}/${month}`;
   } catch {
     return isoString;
   }

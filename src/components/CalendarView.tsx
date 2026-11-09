@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { AppTheme, ProjectPage, Task } from '../types';
 import { NOTION_COLORS } from '../utils/notionStyles';
-import { formatDateVi, getTodayString, isOverdue } from '../utils/dateUtils';
+import { getTodayString } from '../utils/dateUtils';
 import { 
   ChevronLeft, 
   ChevronRight, 
   Plus, 
-  Calendar as CalIcon, 
   Clock
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface CalendarViewProps {
   project: ProjectPage;
@@ -28,6 +28,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   appTheme = 'light',
 }) => {
   const isPink = appTheme === 'qanda_pink';
+  const { language, t, translateStatus } = useLanguage();
   const today = getTodayString();
   const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
 
@@ -52,7 +53,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setCurrentMonthDate(new Date());
   };
 
-  const daysHeader = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  const daysHeader = language === 'en'
+    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    : ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+  const monthNamesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   // Generate calendar cells (including padding for previous and next month)
   const calendarCells = [];
@@ -101,7 +106,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <h2 className={`text-base sm:text-lg font-bold ${
             isPink ? 'text-[#4c0519]' : darkMode ? 'text-white' : 'text-[#37352f]'
           }`}>
-            Tháng {month + 1}, {year}
+            {language === 'en' ? `${monthNamesEn[month]} ${year}` : `Tháng ${month + 1}, ${year}`}
           </h2>
           <button
             onClick={jumpToToday}
@@ -113,7 +118,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 : 'bg-white border-[#e3e2e0] text-[#37352f]'
             }`}
           >
-            Hôm nay
+            {t('today', 'Hôm nay')}
           </button>
         </div>
 
@@ -209,7 +214,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       className={`opacity-0 group-hover:opacity-100 p-0.5 transition-opacity ${
                         isPink ? 'text-[#881337] hover:text-[#e11d48]' : 'text-[#9b9a97] hover:text-[#2383e2]'
                       }`}
-                      title="Thêm công việc vào ngày này"
+                      title={language === 'en' ? 'Add task on this day' : 'Thêm công việc vào ngày này'}
                     >
                       <Plus size={12} />
                     </button>
@@ -231,7 +236,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             onTaskClick(task);
                           }}
                           className={`text-[10px] px-1.5 py-1 rounded-md font-medium flex flex-col gap-0.5 shadow-2xs transition-all hover:scale-[1.02] cursor-pointer ${colStyle.badgeBg}`}
-                          title={`${task.title} - ${col?.title || task.status}${task.dueTime ? ` (${task.dueTime})` : ''}`}
+                          title={`${task.title} - ${translateStatus(col?.title || task.status)}${task.dueTime ? ` (${task.dueTime})` : ''}`}
                         >
                           <div className="flex items-center gap-1 min-w-0">
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${colStyle.dot}`} />
@@ -253,7 +258,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                               </span>
                             )}
                             <span className="truncate">
-                              {col?.title || task.status}
+                              {translateStatus(col?.title || task.status)}
                             </span>
                           </div>
                         </div>

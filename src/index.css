@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* High-Tech Futuristic Typography Utilities */
+.font-tech {
+  font-family: 'Orbitron', 'JetBrains Mono', monospace, sans-serif;
+}
+
+.font-tech-sub {
+  font-family: 'Rajdhani', 'Plus Jakarta Sans', sans-serif;
+}
+
 /* Theme Aria Pink Custom Styling & High Contrast Crimson Palette */
 .theme-qanda-pink {
   --primary: #e11d48;

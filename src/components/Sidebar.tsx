@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { isOverdue } from '../utils/dateUtils';
 import { useLanguage } from '../context/LanguageContext';
+import { GrowthLogo } from './GrowthLogo';
 
 interface SidebarProps {
   projects: ProjectPage[];
@@ -250,12 +251,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'bg-gradient-to-tr from-emerald-600 to-teal-600 text-white shadow-teal-600/25 ring-1 ring-emerald-700/15'
                 }`}
               >
-                <TrendingUp size={18} className="stroke-[2.5]" />
+                <GrowthLogo size={20} variant="white" />
               </button>
               
               <button
                 onClick={onOpenSearch}
-                title="Tìm kiếm nhanh (Ctrl+K)"
+                title={language === 'en' ? 'Quick search (Ctrl+K)' : 'Tìm kiếm nhanh (Ctrl+K)'}
                 className={`p-2 rounded-lg transition-colors ${
                   isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#2f2f2f] text-[#a3a3a3]' : 'hover:bg-[#ebeae7] text-[#787774]'
                 }`}
@@ -277,7 +278,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* My tasks icon */}
               <button
                 onClick={onSelectMyTasks}
-                title={`Công việc của tôi (${myPendingTasksCount} việc)`}
+                title={`${t('myTasks', 'Công việc của tôi')} (${myPendingTasksCount} ${language === 'en' ? 'tasks' : 'việc'})`}
                 className={`w-8 h-8 rounded-lg flex items-center justify-center relative transition-all ${
                   activeSection === 'my_tasks'
                     ? (isPink ? 'bg-[#e11d48] text-white shadow-xs' : 'bg-[#2383e2] text-white shadow-xs')
@@ -296,7 +297,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {onSelectAdminDashboard && (
                 <button
                   onClick={onSelectAdminDashboard}
-                  title={`Dashboard Quản trị (${globalOverdueCount} việc quá hạn)`}
+                  title={`${t('adminDashboard', 'Dashboard Quản trị')} (${globalOverdueCount} ${language === 'en' ? 'overdue' : 'việc quá hạn'})`}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center relative transition-all ${
                     activeSection === 'admin_dashboard'
                       ? (isPink ? 'bg-[#e11d48] text-white shadow-xs' : 'bg-[#2563eb] text-white shadow-xs')
@@ -318,7 +319,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {currentUser && personalProject && (
                 <button
                   onClick={() => onSelectProject(personalProject.id)}
-                  title={`${personalProject.title} (Task cá nhân)`}
+                  title={`${personalProject.title} (${language === 'en' ? 'Personal tasks' : 'Task cá nhân'})`}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center text-base transition-all relative ${
                     activeSection === 'project' && activeProjectId === personalProject.id
                       ? (isPink ? 'bg-white shadow-xs ring-1 ring-[#fda4af] font-bold' : darkMode ? 'bg-[#2f2f2f] ring-1 ring-white/20' : 'bg-white shadow-xs ring-1 ring-black/10 font-bold')
@@ -352,7 +353,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex flex-col items-center gap-2">
               <button
                 onClick={() => onOpenTrashArchive('archive')}
-                title="Kho lưu trữ & Thùng rác"
+                title={t('archiveAndTrash', 'Kho lưu trữ & Thùng rác')}
                 className={`p-2 rounded-lg transition-colors ${
                   isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#2f2f2f] text-[#a3a3a3]' : 'hover:bg-[#ebeae7] text-[#787774]'
                 }`}
@@ -365,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onToggleCollapse();
                   setShowSettingsMenu(true);
                 }}
-                title="Cài đặt & Dữ liệu"
+                title={t('settingsAndData', 'Cài đặt & Dữ liệu')}
                 className={`p-2 rounded-lg transition-colors ${
                   isPink ? 'hover:bg-[#fff0f3] text-[#4c0519]' : darkMode ? 'hover:bg-[#2f2f2f] text-[#a3a3a3]' : 'hover:bg-[#ebeae7] text-[#787774]'
                 }`}
@@ -375,7 +376,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <button
                 onClick={onOpenAuthModal}
-                title={currentUser ? `Đang đăng nhập: ${currentUser.name} (${currentUser.email})` : 'Đăng nhập bằng Email'}
+                title={currentUser ? (language === 'en' ? `Signed in as: ${currentUser.name} (${currentUser.email})` : `Đang đăng nhập: ${currentUser.name} (${currentUser.email})`) : (language === 'en' ? 'Sign in with Email' : 'Đăng nhập bằng Email')}
                 className="p-1 rounded-full hover:ring-2 hover:ring-rose-500 transition-all"
               >
                 {currentUser ? (
@@ -415,15 +416,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-64 h-full flex flex-col justify-between"
           >
             {/* Top Workspace Header & Branding */}
-            <div className={`p-3 pt-3.5 pb-3 border-b select-none ${dividerClass} ${
+            <div className={`p-3.5 pt-4 pb-3.5 border-b select-none ${dividerClass} ${
               isPink 
                 ? 'bg-gradient-to-b from-[#fff5f6] to-transparent' 
                 : darkMode 
                   ? 'bg-gradient-to-b from-white/[0.03] to-transparent' 
                   : 'bg-gradient-to-b from-white to-transparent'
             }`}>
-              <div className="flex items-center gap-2.5 w-full">
-                {/* Growth Emblem - Sized to match the entire right-side text height */}
+              <div className="flex items-center gap-3 w-full">
+                {/* Growth Emblem */}
                 <div className="relative group shrink-0">
                   {/* Subtle ambient glow behind growth icon */}
                   <div className={`absolute -inset-1 rounded-2xl blur-md opacity-45 group-hover:opacity-85 transition-opacity pointer-events-none ${
@@ -432,22 +433,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : darkMode ? 'bg-emerald-500' : 'bg-emerald-600'
                   }`} />
                   
-                  <div className={`relative w-[70px] h-[70px] rounded-2xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105 ${
+                  <div className={`relative w-[66px] h-[66px] rounded-2xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105 ${
                     isPink
                       ? 'bg-gradient-to-tr from-rose-500 via-rose-600 to-pink-500 text-white shadow-rose-500/25 ring-1 ring-white/30'
                       : darkMode
                         ? 'bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-400 text-white shadow-emerald-500/25 ring-1 ring-white/15'
                         : 'bg-gradient-to-tr from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-emerald-600/25 ring-1 ring-emerald-700/20'
                   }`} title="Growth Department Workspace">
-                    <TrendingUp size={35} className="stroke-[2.5]" />
+                    <GrowthLogo size={40} variant="white" className="drop-shadow-xs" />
                   </div>
                 </div>
 
-                {/* 3-line Text Block - Fills entire width of sidebar next to logo */}
-                <div className="flex-1 min-w-0 flex flex-col justify-between h-[70px] py-0.5">
-                  {/* Line 1: GROWTH - All Caps with Vibrant Gradient, Ambient Glow & Slanted Arrow Alignment */}
-                  <div>
-                    <span className={`inline-block italic -skew-x-6 font-black text-[24.5px] tracking-[0.03em] leading-none uppercase select-none transition-all transform origin-bottom-left ${
+                {/* 3-line Text Block with generous vertical rhythm */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  {/* Line 1: GROWTH - High-Tech Futuristic Font (Orbitron) with Vibrant Gradient & Slant */}
+                  <div className="leading-none overflow-visible">
+                    <span className={`inline-block font-tech italic -skew-x-6 font-black text-[20.5px] tracking-[0.08em] leading-none uppercase select-none transition-all transform origin-bottom-left ${
                       isPink
                         ? 'bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(244,63,94,0.25)]'
                         : darkMode
@@ -458,34 +459,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   </div>
 
-                  {/* Line 2: Department - Scaled to match horizontal length of GROWTH */}
-                  <span className={`text-[19.5px] font-black tracking-[0.08em] leading-none select-none ${
-                    isPink ? 'text-[#881337]' : darkMode ? 'text-zinc-100' : 'text-[#18181b]'
-                  }`}>
-                    Department
-                  </span>
+                  {/* Line 2: Department - Matching High-Tech Font (Orbitron) & Synchronized Slant */}
+                  <div className="mt-1 leading-none overflow-visible">
+                    <span className={`inline-block font-tech italic -skew-x-6 font-bold text-[15.2px] tracking-[0.06em] leading-none select-none transition-all transform origin-bottom-left ${
+                      isPink ? 'text-[#881337]' : darkMode ? 'text-zinc-200' : 'text-[#18181b]'
+                    }`}>
+                      Department
+                    </span>
+                  </div>
 
-                  {/* Line 3: Workspace & Role Badge */}
-                  <div className="flex items-center gap-2 leading-none mt-0.5">
-                    <span className={`text-[12px] font-bold tracking-tight ${
-                      isPink ? 'text-[#be123c]' : darkMode ? 'text-zinc-400' : 'text-[#5a5855]'
+                  {/* Line 3: Workspace & Role Badge - Generous spacing with subtle divider */}
+                  <div className="flex items-center justify-between gap-1.5 mt-2.5 pt-1.5 border-t border-black/[0.05] dark:border-white/[0.07]">
+                    <span className={`font-tech text-[9.5px] font-semibold tracking-[0.12em] uppercase leading-none ${
+                      isPink ? 'text-[#be123c]' : darkMode ? 'text-zinc-400' : 'text-[#6b6965]'
                     }`}>
                       Workspace
                     </span>
 
                     {currentUser?.role === 'admin' ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 shadow-xs">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 shadow-xs leading-none">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         <span>Admin</span>
                       </span>
                     ) : currentUser ? (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/25 leading-none">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                         <span>Member</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20">
-                        <span>Khách</span>
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20 leading-none">
+                        <span>{t('guest', 'Khách')}</span>
                       </span>
                     )}
                   </div>
@@ -621,7 +624,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <span className={`font-bold text-[11px] tracking-wide uppercase truncate ${
                         isPink ? 'text-[#9f1239]' : darkMode ? 'text-blue-300' : 'text-blue-700'
                       }`}>
-                        Cá nhân
+                        {language === 'en' ? 'Personal' : 'Cá nhân'}
                       </span>
                     </div>
 
@@ -673,7 +676,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {favoriteProjects.length > 0 && (
                 <div>
                   <div className={`px-2 py-1 text-[11px] font-bold uppercase tracking-wider flex items-center justify-between ${sectionHeaderColor}`}>
-                    <span>Mục yêu thích</span>
+                    <span>{t('favoriteProjects', 'Mục yêu thích')}</span>
                     <Star size={11} className="text-amber-500 fill-amber-500" />
                   </div>
                   <div className="space-y-0.5 mt-0.5">
@@ -704,7 +707,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   onToggleFavorite(proj.id);
                                 }}
                                 className="p-1 hover:text-amber-500 transition-colors"
-                                title="Bỏ yêu thích"
+                                title={language === 'en' ? 'Remove from favorites' : 'Bỏ yêu thích'}
                               >
                                 <Star size={12} className="fill-amber-500 text-amber-500" />
                               </button>
@@ -776,7 +779,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ? 'hover:bg-[#fff0f3] text-[#4c0519]'
                                 : darkMode ? 'hover:bg-white/[0.08] text-white' : 'hover:bg-black/5 text-[#37352f]'
                             }`}
-                            title={`Tạo bảng quản lý mới cho team ${team.name}`}
+                            title={language === 'en' ? `Create new board for ${team.name}` : `Tạo bảng quản lý mới cho team ${team.name}`}
                           >
                             <Plus size={13} strokeWidth={2.5} />
                           </button>
@@ -823,7 +826,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                               onToggleFavorite(proj.id);
                                             }}
                                             className={`p-1 transition-colors ${isPink ? 'text-[#881337] hover:text-amber-500' : 'text-[#9b9a97] hover:text-amber-500'}`}
-                                            title="Thêm vào yêu thích"
+                                            title={language === 'en' ? 'Add to favorites' : 'Thêm vào yêu thích'}
                                           >
                                             <Star size={12} />
                                           </button>
@@ -834,7 +837,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                 setProjectToDelete(proj);
                                               }}
                                               className={`p-1 transition-colors ${isPink ? 'text-[#881337] hover:text-rose-600' : 'text-[#9b9a97] hover:text-red-500'}`}
-                                              title="Xóa bảng"
+                                              title={language === 'en' ? 'Delete board' : 'Xóa bảng'}
                                             >
                                               <Trash2 size={12} />
                                             </button>
@@ -850,7 +853,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               })
                             ) : (
                               <div className={`py-1 px-2 text-[11px] italic ${textMuted}`}>
-                                Chưa có bảng nào
+                                {language === 'en' ? 'No boards yet' : 'Chưa có bảng nào'}
                               </div>
                             )}
                           </motion.div>
@@ -875,7 +878,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <div className="flex items-center gap-2">
                     <Settings size={14} />
-                    <span>Cài đặt & Dữ liệu</span>
+                    <span>{t('settingsAndData', 'Cài đặt & Dữ liệu')}</span>
                   </div>
                   <span className={`${textMuted} inline-flex transition-transform duration-200 transform ${showSettingsMenu ? 'rotate-90' : ''}`}>
                     <ChevronRight size={13} />
@@ -899,7 +902,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div className="pt-1 pb-1">
                         <div className={`text-[10px] uppercase font-bold px-2 py-1 flex items-center gap-1.5 ${textMuted}`}>
                           <Sparkles size={11} className={isPink ? 'text-[#e11d48]' : 'text-[#FFA9B2]'} />
-                          <span>Giao diện màu sắc</span>
+                          <span>{t('themeAppearance', 'Giao diện màu sắc')}</span>
                         </div>
                         <div className="grid grid-cols-3 gap-1 px-1 pt-1 pb-1">
                           <button
@@ -912,10 +915,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ? 'bg-white border-[#2383e2] text-[#2383e2] shadow-xs'
                                 : darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#a1a1aa] hover:text-white hover:bg-white/[0.08]' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
                             }`}
-                            title="Giao diện Sáng"
+                            title={language === 'en' ? 'Light mode' : 'Giao diện Sáng'}
                           >
                             <Sun size={14} className="mb-0.5 text-amber-500" />
-                            <span>Sáng</span>
+                            <span>{t('themeLight', 'Sáng')}</span>
                           </button>
 
                           <button
@@ -928,10 +931,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ? 'bg-blue-500/15 border-blue-500/50 text-blue-400 shadow-xs'
                                 : darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#a1a1aa] hover:text-white hover:bg-white/[0.08]' : 'bg-[#f4f3f0] border-transparent text-[#666] hover:bg-[#eae8e4]'
                             }`}
-                            title="Giao diện Tối Deep Charcoal"
+                            title={language === 'en' ? 'Dark OLED mode' : 'Giao diện Tối Deep Charcoal'}
                           >
                             <Moon size={14} className="mb-0.5 text-blue-400" />
-                            <span>Tối OLED</span>
+                            <span>{t('themeDark', 'Tối OLED')}</span>
                           </button>
 
                           <button
@@ -943,7 +946,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 ? 'bg-white border-[#e11d48] text-[#9f1239] shadow-xs ring-1 ring-[#e11d48]'
                                 : darkMode ? 'bg-white/[0.04] border-white/[0.06] text-[#FFA9B2] hover:bg-rose-500/10' : 'bg-[#fff5f6] border-transparent text-[#d63d57] hover:bg-[#ffe6e9]'
                             }`}
-                            title="Giao diện đặc trưng Aria Pink"
+                            title={language === 'en' ? 'Aria Pink theme' : 'Giao diện đặc trưng Aria Pink'}
                           >
                             <span className="w-3.5 h-3.5 rounded-full bg-[#f43f5e] border border-[#e11d48] shadow-xs mb-0.5" />
                             <span className="truncate">Aria</span>
@@ -1037,7 +1040,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   className={`flex-1 min-w-0 flex items-center justify-between p-1.5 rounded-lg cursor-pointer transition-colors ${
                     isPink ? 'hover:bg-[#fff0f3]/80' : darkMode ? 'hover:bg-[#2a2a2a]' : 'hover:bg-[#ebeae7]'
                   }`}
-                  title={currentUser ? "Nhấn để quản lý hoặc đăng xuất tài khoản" : "Nhấn để đăng nhập"}
+                  title={currentUser ? (language === 'en' ? 'Click to manage or sign out' : 'Nhấn để quản lý hoặc đăng xuất tài khoản') : (language === 'en' ? 'Click to sign in' : 'Nhấn để đăng nhập')}
                 >
                   {currentUser ? (
                     <div className="flex items-center gap-2 overflow-hidden min-w-0">
@@ -1055,12 +1058,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ) : (
                     <div className={`flex items-center gap-2 text-xs font-semibold ${isPink ? 'text-[#be123c]' : 'text-[#2383e2]'}`}>
                       <LogIn size={14} />
-                      <span>Đăng nhập Email</span>
+                      <span>{t('loginEmail', 'Đăng nhập Email')}</span>
                     </div>
                   )}
 
                   <div className={`text-[10px] font-semibold shrink-0 ml-1 ${textMuted} hover:text-red-500`}>
-                    {currentUser ? 'Tài khoản' : ''}
+                    {currentUser ? t('account', 'Tài khoản') : ''}
                   </div>
                 </div>
 
@@ -1072,7 +1075,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       ? 'text-[#881337]/70 hover:text-[#4c0519] hover:bg-[#fff0f3]' 
                       : darkMode ? 'text-zinc-400 hover:text-white hover:bg-white/10' : 'text-zinc-500 hover:text-zinc-800 hover:bg-black/5'
                   }`}
-                  title="Thu gọn thanh bên"
+                  title={t('collapseSidebar', 'Thu gọn thanh bên')}
                 >
                   <PanelLeftClose size={16} />
                 </button>
@@ -1092,10 +1095,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             setProjectToDelete(null);
           }
         }}
-        title={`Xóa bảng "${projectToDelete?.title}"?`}
-        description={`Tất cả các công việc trong bảng này (${(projectToDelete?.tasks || []).filter(t => !t.isDeleted).length} công việc) sẽ được chuyển vào Thùng rác.`}
-        confirmText="Xóa bảng & Chuyển task vào Thùng rác"
-        cancelText="Hủy bỏ"
+        title={language === 'en' ? `Delete board "${projectToDelete?.title}"?` : `Xóa bảng "${projectToDelete?.title}"?`}
+        description={language === 'en' 
+          ? `All tasks in this board (${(projectToDelete?.tasks || []).filter(t => !t.isDeleted).length} tasks) will be moved to Trash.` 
+          : `Tất cả các công việc trong bảng này (${(projectToDelete?.tasks || []).filter(t => !t.isDeleted).length} công việc) sẽ được chuyển vào Thùng rác.`}
+        confirmText={language === 'en' ? 'Delete board & move tasks to Trash' : 'Xóa bảng & Chuyển task vào Thùng rác'}
+        cancelText={t('cancel', 'Hủy bỏ')}
         darkMode={darkMode}
       />
     </motion.aside>

@@ -19,6 +19,7 @@ import {
   Archive,
   UserCheck
 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface KanbanBoardProps {
   project: ProjectPage;
@@ -46,6 +47,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   appTheme = 'light',
 }) => {
   const isPink = appTheme === 'qanda_pink';
+  const { language, t, translateStatus, translatePriority } = useLanguage();
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<StatusId | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -146,7 +148,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 <div className="flex items-center gap-2">
                   <span className={`text-xs px-2.5 py-1 rounded-md font-semibold flex items-center gap-1.5 ${colStyle.badgeBg}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${colStyle.dot}`} />
-                    {col.title}
+                    {translateStatus(col.title)}
                   </span>
                   <span className={`text-xs font-mono font-medium ${
                     isPink 
@@ -270,7 +272,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           {(task.attachments || []).length > 0 && (
                             <span className={`flex items-center gap-0.5 text-[11px] ${
                               isPink ? 'text-[#881337]' : 'text-[#9b9a97]'
-                            }`} title="Tệp đính kèm">
+                            }`} title={language === 'en' ? 'Attachments' : 'Tệp đính kèm'}>
                               <Paperclip size={11} />
                               <span className="font-mono">{(task.attachments || []).length}</span>
                             </span>
@@ -280,7 +282,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           {(task.comments || []).length > 0 && (
                             <span className={`flex items-center gap-0.5 text-[11px] ${
                               isPink ? 'text-[#881337]' : 'text-[#9b9a97]'
-                            }`} title="Bình luận">
+                            }`} title={language === 'en' ? 'Comments' : 'Bình luận'}>
                               <MessageSquare size={11} />
                               <span className="font-mono">{(task.comments || []).length}</span>
                             </span>
@@ -290,7 +292,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           {task.isArchived && (
                             <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
                               <Archive size={10} />
-                              <span>Lưu trữ</span>
+                              <span>{language === 'en' ? 'Archived' : 'Lưu trữ'}</span>
                             </span>
                           )}
 
@@ -298,7 +300,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           {task.priority !== 'none' && (
                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5 ${priority.badgeBg} ${priority.badgeText}`}>
                               {task.priority === 'urgent' && <AlertCircle size={10} />}
-                              {priority.label}
+                              {translatePriority(task.priority)}
                             </span>
                           )}
 
@@ -306,23 +308,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                           {task.creator && (
                             <span
                               className="text-[10px] px-1.5 py-0.5 rounded font-medium flex items-center gap-1 bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40"
-                              title={`Người duyệt: ${task.creator.name}${task.creator.email ? ` (${task.creator.email})` : ''}`}
+                              title={`${t('reviewerPrefix', 'Người duyệt')}: ${task.creator.name}${task.creator.email ? ` (${task.creator.email})` : ''}`}
                             >
                               <UserCheck size={10} className="text-purple-600 dark:text-purple-400 shrink-0" />
-                              <span className="truncate max-w-[70px]">Duyệt: {task.creator.name}</span>
+                              <span className="truncate max-w-[70px]">{t('reviewerBadge', 'Duyệt')}: {task.creator.name}</span>
                             </span>
                           )}
                         </div>
 
                         {/* Assignee Avatars Stack */}
                         {task.assignees && task.assignees.length > 0 && (
-                          <div className="flex items-center -space-x-1.5 shrink-0" title={`Người làm: ${task.assignees.map(u => u.name).join(', ')}`}>
+                          <div className="flex items-center -space-x-1.5 shrink-0" title={`${t('assigneePrefix', 'Người làm')}: ${task.assignees.map(u => u.name).join(', ')}`}>
                             {task.assignees.slice(0, 3).map((user) => (
                               <img
                                 key={user.id}
                                 src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}&backgroundColor=2383e2`}
                                 alt={user.name}
-                                title={`Người làm: ${user.name}`}
+                                title={`${t('assigneePrefix', 'Người làm')}: ${user.name}`}
                                 referrerPolicy="no-referrer"
                                 className="w-5 h-5 rounded-full ring-2 ring-white dark:ring-[#232323] object-cover"
                               />
@@ -349,7 +351,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       : 'bg-white border-[#e3e2e0]'
                   }`}>
                     <textarea
-                      placeholder="Nhập tên công việc mới..."
+                      placeholder={t('newCardPlaceholder', 'Nhập tên công việc mới...')}
                       value={quickAddTitle}
                       onChange={(e) => setQuickAddTitle(e.target.value)}
                       onCompositionStart={() => setIsComposingQuickAdd(true)}
@@ -373,7 +375,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     <div className={`flex items-center justify-between pt-2 border-t ${
                       isPink ? 'border-[#ffe4e6]' : darkMode ? 'border-[#333]' : 'border-[#f1f1ef]'
                     }`}>
-                      <span className={`text-[10px] ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>Enter ↵ để tạo</span>
+                      <span className={`text-[10px] ${isPink ? 'text-[#881337]' : 'text-[#9b9a97]'}`}>
+                        {t('enterToCreate', 'Enter ↵ để tạo')}
+                      </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setQuickAddColumnId(null)}
@@ -381,16 +385,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                             isPink ? 'text-[#881337] hover:text-[#4c0519] hover:bg-[#ffe4e6]' : 'text-[#787774] hover:text-[#37352f]'
                           }`}
                         >
-                          Hủy
+                          {t('cancel', 'Hủy')}
                         </button>
                         <button
                           onClick={() => handleQuickAddSubmit(col.id)}
                           disabled={!quickAddTitle.trim()}
-                          className={`px-3 py-1 text-white text-xs font-medium rounded-md shadow-xs disabled:opacity-40 transition-all ${
+                          className={`px-3 py-1 text-white text-xs font-semibold rounded-md shadow-xs disabled:opacity-40 transition-all ${
                             isPink ? 'bg-[#e11d48] hover:bg-[#be123c]' : 'bg-[#2383e2] hover:bg-[#1d6ec0]'
                           }`}
                         >
-                          Thêm
+                          {t('add', 'Thêm')}
                         </button>
                       </div>
                     </div>
@@ -410,7 +414,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     }`}
                   >
                     <Plus size={14} className={isPink ? 'text-[#e11d48]' : ''} />
-                    <span>Thêm thẻ</span>
+                    <span>{t('addCard', 'Thêm thẻ')}</span>
                   </button>
                 )}
               </div>
